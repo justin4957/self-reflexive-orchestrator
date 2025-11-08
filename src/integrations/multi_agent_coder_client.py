@@ -330,9 +330,10 @@ Please provide your analysis in a structured format.
             MultiAgentResponse with review feedback from multiple providers
         """
         focus = "\n".join([f"- {area}" for area in (focus_areas or [])])
+        default_focus = "- Code quality and best practices\n- Error handling\n- Performance\n- Security\n- Maintainability"
 
         prompt = f"""Review the following code and provide feedback on:
-{focus if focus else "- Code quality and best practices\n- Error handling\n- Performance\n- Security\n- Maintainability"}
+{focus if focus else default_focus}
 
 **Code:**
 ```python
