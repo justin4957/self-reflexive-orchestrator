@@ -1,0 +1,118 @@
+# Self-Reflexive Orchestrator Configuration
+# Copy this file to orchestrator-config.yaml and customize
+
+orchestrator:
+  # Mode: manual (requires explicit triggers), supervised (requires approval), autonomous (fully automated)
+  mode: supervised
+  # How often to poll for new issues (seconds)
+  poll_interval: 300
+  # Working directory for git operations
+  work_dir: ./workspace
+
+github:
+  # GitHub repository (owner/repo format)
+  repository: ""
+  # GitHub token (or set GITHUB_TOKEN env var)
+  token: ""
+  # Base branch for PRs
+  base_branch: main
+
+issue_processing:
+  # Labels that trigger automatic processing
+  auto_claim_labels:
+    - bot-approved
+    - good-first-issue
+  # Labels that prevent processing
+  ignore_labels:
+    - wontfix
+    - manual-only
+    - blocked
+  # Maximum complexity score to attempt (0-10)
+  max_complexity: 7
+  # Require issues to have acceptance criteria
+  require_acceptance_criteria: true
+  # Maximum concurrent issues to process
+  max_concurrent: 2
+
+pr_management:
+  # Number of times to attempt auto-fixing failed tests
+  auto_fix_attempts: 2
+  # Minimum number of reviews required
+  require_reviews: 1
+  # Auto-merge when all checks pass
+  auto_merge: true
+  # Merge strategy: merge, squash, rebase
+  merge_strategy: squash
+  # Wait time for CI checks (seconds)
+  ci_timeout: 1800
+
+code_review:
+  # Path to multi-agent-coder
+  multi_agent_coder_path: ../multi-agent-coder
+  # Timeout for code review (seconds)
+  review_timeout: 600
+  # Require approval from multi-agent-coder
+  require_approval: true
+
+roadmap:
+  # Enable roadmap generation
+  enabled: true
+  # How often to generate roadmap: daily, weekly, monthly
+  generation_frequency: weekly
+  # Number of proposals per cycle
+  proposals_per_cycle: 5
+  # Auto-create issues from roadmap
+  auto_create_issues: true
+
+llm:
+  # Anthropic API key (or set ANTHROPIC_API_KEY env var)
+  api_key: ""
+  # Model to use
+  model: claude-sonnet-4-5-20250929
+  # Max tokens per request
+  max_tokens: 8000
+  # Temperature for generation
+  temperature: 0.7
+
+safety:
+  # Actions requiring human approval
+  human_approval_required:
+    - merge_to_main
+    - breaking_changes
+    - security_related
+  # Maximum API cost per day (USD)
+  max_api_cost_per_day: 50.0
+  # Rollback on test failure
+  rollback_on_test_failure: true
+  # Maximum retries for failed operations
+  max_retries: 3
+
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: INFO
+  # Log file path
+  file: logs/orchestrator.log
+  # Audit log path
+  audit_file: logs/audit.log
+  # Enable structured logging
+  structured: true
+
+notifications:
+  # Slack webhook URL (optional)
+  slack_webhook: ""
+  # Email for notifications (optional)
+  email: ""
+  # Events to notify on
+  on_events:
+    - error
+    - merge
+    - roadmap_generated
+    - human_approval_required
+
+redis:
+  # Redis connection for state management
+  host: localhost
+  port: 6379
+  db: 0
+  # Password (or set REDIS_PASSWORD env var)
+  password: ""
