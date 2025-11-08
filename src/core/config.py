@@ -47,9 +47,20 @@ class PRManagementConfig:
 @dataclass
 class CodeReviewConfig:
     """Code review configuration."""
-    multi_agent_coder_path: str = "../multi-agent-coder"
+    multi_agent_coder_path: str = "../multi_agent_coder/multi_agent_coder"
     review_timeout: int = 600
     require_approval: bool = True
+
+
+@dataclass
+class MultiAgentCoderConfig:
+    """Multi-agent-coder integration configuration."""
+    executable_path: str = "../multi_agent_coder/multi_agent_coder"
+    default_strategy: str = "all"  # all, sequential, dialectical
+    default_providers: List[str] = field(default_factory=lambda: [])  # Empty = use all available
+    query_timeout: int = 120  # seconds
+    enable_for_issue_analysis: bool = True
+    enable_for_code_review: bool = True
 
 
 @dataclass
@@ -117,6 +128,7 @@ class Config:
     issue_processing: IssueProcessingConfig = field(default_factory=IssueProcessingConfig)
     pr_management: PRManagementConfig = field(default_factory=PRManagementConfig)
     code_review: CodeReviewConfig = field(default_factory=CodeReviewConfig)
+    multi_agent_coder: MultiAgentCoderConfig = field(default_factory=MultiAgentCoderConfig)
     roadmap: RoadmapConfig = field(default_factory=RoadmapConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
     safety: SafetyConfig = field(default_factory=SafetyConfig)
@@ -133,6 +145,7 @@ class Config:
             issue_processing=IssueProcessingConfig(**data.get("issue_processing", {})),
             pr_management=PRManagementConfig(**data.get("pr_management", {})),
             code_review=CodeReviewConfig(**data.get("code_review", {})),
+            multi_agent_coder=MultiAgentCoderConfig(**data.get("multi_agent_coder", {})),
             roadmap=RoadmapConfig(**data.get("roadmap", {})),
             llm=LLMConfig(**data.get("llm", {})),
             safety=SafetyConfig(**data.get("safety", {})),
