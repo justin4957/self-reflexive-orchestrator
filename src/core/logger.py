@@ -43,6 +43,12 @@ class EventType(Enum):
     ROADMAP_VALIDATED = "roadmap_validated"
     ROADMAP_ISSUES_CREATED = "roadmap_issues_created"
 
+    # Code execution events
+    BRANCH_CREATED = "branch_created"
+    CODE_COMMITTED = "code_committed"
+    EXECUTION_STARTED = "execution_started"
+    EXECUTION_COMPLETED = "execution_completed"
+
     # Safety events
     HUMAN_APPROVAL_REQUESTED = "human_approval_requested"
     HUMAN_APPROVAL_GRANTED = "human_approval_granted"
