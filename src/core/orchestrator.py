@@ -203,7 +203,10 @@ class Orchestrator:
         # Initialize execution components
         self.code_executor = CodeExecutor(
             git_ops=self.git_ops,
+            multi_agent_client=self.multi_agent_coder,
             logger=self.logger,
+            repo_path=self.workspace,
+            enable_code_generation=self.config.issue_processing.enable_auto_implementation,
         )
 
         self.pr_creator = PRCreator(

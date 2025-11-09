@@ -116,21 +116,24 @@ class CodeExecutor:
         logger: AuditLogger,
         repo_path: str,
         enable_validation: bool = True,
+        enable_code_generation: bool = True,
     ):
         """Initialize code executor.
 
         Args:
             git_ops: Git operations manager
-            multi_agent_client: Multi-agent-coder client for validation
+            multi_agent_client: Multi-agent-coder client for code generation and validation
             logger: Audit logger instance
             repo_path: Path to repository root
             enable_validation: Whether to enable multi-agent code validation
+            enable_code_generation: Whether to use multi-agent-coder for real code generation (vs placeholders)
         """
         self.git_ops = git_ops
         self.multi_agent = multi_agent_client
         self.logger = logger
         self.repo_path = Path(repo_path).resolve()
         self.enable_validation = enable_validation
+        self.enable_code_generation = enable_code_generation
 
         # Statistics
         self.total_executions = 0
@@ -370,8 +373,8 @@ class CodeExecutor:
     ) -> List[CodeChange]:
         """Generate code changes for an implementation step.
 
-        This is a placeholder that would integrate with an LLM to generate
-        actual code. For now, it creates stub implementations.
+        Uses multi-agent-coder to generate actual working code based on the
+        implementation step description and context.
 
         Args:
             step: ImplementationStep to implement
@@ -393,21 +396,40 @@ class CodeExecutor:
                 # Read existing content
                 with open(file_full_path, 'r', encoding='utf-8') as f:
                     existing_content = f.read()
-
-                # TODO: Use LLM to generate modifications
-                # For now, add a placeholder comment
-                new_content = existing_content + f"\n\n# Implementation for step {step.step_number}: {step.description}\n"
             else:
                 change_type = "create"
-                # TODO: Use LLM to generate new file content
-                # For now, create stub
-                new_content = f'''"""Auto-generated file for step {step.step_number}."""
+                existing_content = None
 
-# {step.description}
-
-# TODO: Implement functionality
-pass
-'''
+            # Generate code using multi-agent-coder if enabled
+            if self.enable_code_generation:
+                try:
+                    new_content = self._generate_code_with_llm(
+                        step=step,
+                        file_path=file_path,
+                        existing_content=existing_content,
+                        plan=plan,
+                        work_item=work_item,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        "Code generation failed, using placeholder",
+                        file_path=file_path,
+                        error=str(e),
+                        exc_info=True,
+                    )
+                    # Fallback to placeholder
+                    new_content = self._generate_placeholder_code(
+                        step=step,
+                        file_path=file_path,
+                        existing_content=existing_content,
+                    )
+            else:
+                # Use placeholder if code generation disabled
+                new_content = self._generate_placeholder_code(
+                    step=step,
+                    file_path=file_path,
+                    existing_content=existing_content,
+                )
 
             changes.append(CodeChange(
                 file_path=file_path,
@@ -417,6 +439,236 @@ pass
             ))
 
         return changes
+
+    def _generate_code_with_llm(
+        self,
+        step: ImplementationStep,
+        file_path: str,
+        existing_content: Optional[str],
+        plan: ImplementationPlan,
+        work_item: WorkItem,
+    ) -> str:
+        """Generate real code using multi-agent-coder.
+
+        Args:
+            step: Implementation step
+            file_path: Path to file being generated/modified
+            existing_content: Existing file content (None if new file)
+            plan: Full implementation plan for context
+            work_item: Work item being processed
+
+        Returns:
+            Generated code content
+
+        Raises:
+            RuntimeError: If code generation fails
+        """
+        # Build comprehensive prompt for code generation
+        prompt = self._build_code_generation_prompt(
+            step=step,
+            file_path=file_path,
+            existing_content=existing_content,
+            plan=plan,
+            work_item=work_item,
+        )
+
+        self.logger.info(
+            "Generating code with multi-agent-coder",
+            file_path=file_path,
+            step_number=step.step_number,
+            has_existing=existing_content is not None,
+        )
+
+        # Use single provider (anthropic) for deterministic code generation
+        # All providers could have different coding styles which would be inconsistent
+        response = self.multi_agent.query(
+            prompt=prompt,
+            strategy=MultiAgentStrategy.ALL,
+            providers=["anthropic"],  # Use single provider for consistency
+            timeout=180,  # 3 minutes for code generation
+        )
+
+        if not response.success:
+            raise RuntimeError(f"Code generation failed: {response.error}")
+
+        # Extract code from response
+        # The response will be in response.responses["anthropic"]
+        generated_code = response.responses.get("anthropic", "")
+
+        if not generated_code:
+            raise RuntimeError("No code generated by LLM")
+
+        # Clean up the response (remove markdown code blocks if present)
+        generated_code = self._clean_generated_code(generated_code)
+
+        self.logger.info(
+            "Code generation successful",
+            file_path=file_path,
+            code_length=len(generated_code),
+            tokens=response.total_tokens,
+            cost=response.total_cost,
+        )
+
+        return generated_code
+
+    def _build_code_generation_prompt(
+        self,
+        step: ImplementationStep,
+        file_path: str,
+        existing_content: Optional[str],
+        plan: ImplementationPlan,
+        work_item: WorkItem,
+    ) -> str:
+        """Build prompt for code generation.
+
+        Args:
+            step: Implementation step
+            file_path: File path
+            existing_content: Existing content if modifying
+            plan: Implementation plan
+            work_item: Work item
+
+        Returns:
+            Formatted prompt
+        """
+        # Get issue context
+        issue_title = work_item.metadata.get("title", f"Issue #{work_item.item_id}")
+        issue_description = work_item.metadata.get("description", "")
+
+        if existing_content:
+            prompt = f"""You are a Python code generator. Generate production-quality, working code.
+
+ISSUE: {issue_title}
+{issue_description}
+
+IMPLEMENTATION STEP {step.step_number}/{len(plan.implementation_steps)}:
+{step.description}
+
+FILE TO MODIFY: {file_path}
+
+EXISTING CODE:
+```python
+{existing_content}
+```
+
+DEPENDENCIES (for context):
+{self._format_dependencies(step, plan)}
+
+INSTRUCTIONS:
+1. Modify the existing code to implement the requested step
+2. Preserve all existing functionality unless it conflicts with requirements
+3. Follow Python best practices and PEP 8
+4. Add comprehensive docstrings (Google style)
+5. Include type hints for all functions/methods
+6. Add proper error handling
+7. Ensure all code is complete and functional
+8. DO NOT add explanatory text or markdown
+9. Return ONLY the complete, modified file content
+
+CRITICAL: Return raw Python code only. No markdown, no explanations, no code blocks."""
+
+        else:
+            prompt = f"""You are a Python code generator. Generate production-quality, working code.
+
+ISSUE: {issue_title}
+{issue_description}
+
+IMPLEMENTATION STEP {step.step_number}/{len(plan.implementation_steps)}:
+{step.description}
+
+FILE TO CREATE: {file_path}
+
+DEPENDENCIES (for context):
+{self._format_dependencies(step, plan)}
+
+INSTRUCTIONS:
+1. Create a complete, working Python file
+2. Include module-level docstring explaining purpose
+3. Follow Python best practices and PEP 8
+4. Add comprehensive docstrings (Google style)
+5. Include type hints for all functions/methods
+6. Add proper error handling
+7. Include all necessary imports
+8. Ensure all code is complete and functional
+9. DO NOT add explanatory text or markdown
+10. Return ONLY the complete file content
+
+CRITICAL: Return raw Python code only. No markdown, no explanations, no code blocks."""
+
+        return prompt
+
+    def _format_dependencies(self, step: ImplementationStep, plan: ImplementationPlan) -> str:
+        """Format dependency information for context.
+
+        Args:
+            step: Current step
+            plan: Full plan
+
+        Returns:
+            Formatted dependency string
+        """
+        parts = []
+
+        if step.dependencies:
+            parts.append(f"Dependencies: {', '.join(step.dependencies)}")
+
+        if plan.files_to_create:
+            parts.append(f"New files in plan: {', '.join(plan.files_to_create)}")
+
+        if plan.files_to_modify:
+            parts.append(f"Modified files in plan: {', '.join(plan.files_to_modify)}")
+
+        return "\n".join(parts) if parts else "None"
+
+    def _clean_generated_code(self, code: str) -> str:
+        """Clean generated code by removing markdown artifacts.
+
+        Args:
+            code: Generated code (may have markdown)
+
+        Returns:
+            Cleaned code
+        """
+        # Remove markdown code blocks if present
+        lines = code.strip().split("\n")
+
+        # Check if wrapped in ```python or ```
+        if lines[0].strip().startswith("```"):
+            lines = lines[1:]
+
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+
+        return "\n".join(lines)
+
+    def _generate_placeholder_code(
+        self,
+        step: ImplementationStep,
+        file_path: str,
+        existing_content: Optional[str],
+    ) -> str:
+        """Generate placeholder code (fallback when LLM generation disabled/fails).
+
+        Args:
+            step: Implementation step
+            file_path: File path
+            existing_content: Existing content if any
+
+        Returns:
+            Placeholder code
+        """
+        if existing_content:
+            # Add placeholder comment to existing file
+            return existing_content + f"\n\n# Implementation for step {step.step_number}: {step.description}\n"
+        else:
+            # Create stub file
+            return f'''"""Auto-generated file for step {step.step_number}."""
+
+# {step.description}
+
+# TODO: Implement functionality
+pass
+'''
 
     def _apply_changes(self, changes: List[CodeChange]) -> None:
         """Apply code changes to files.
