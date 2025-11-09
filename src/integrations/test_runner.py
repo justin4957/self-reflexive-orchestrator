@@ -20,6 +20,7 @@ from ..core.logger import AuditLogger
 
 class TestFramework(Enum):
     """Supported test frameworks."""
+
     PYTEST = "pytest"
     UNITTEST = "unittest"
     JEST = "jest"
@@ -31,6 +32,7 @@ class TestFramework(Enum):
 
 class TestStatus(Enum):
     """Test execution status."""
+
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -40,6 +42,7 @@ class TestStatus(Enum):
 @dataclass
 class TestFailure:
     """Represents a single test failure."""
+
     test_name: str
     test_file: str
     error_message: str
@@ -62,6 +65,7 @@ class TestFailure:
 @dataclass
 class TestResult:
     """Complete test execution result."""
+
     framework: TestFramework
     total_tests: int
     passed: int
@@ -100,11 +104,13 @@ class TestResult:
 
 class TestRunnerError(Exception):
     """Base exception for test runner errors."""
+
     pass
 
 
 class TestFrameworkNotFoundError(TestRunnerError):
     """Raised when test framework cannot be detected or is not installed."""
+
     pass
 
 
@@ -234,7 +240,9 @@ class TestRunner:
             )
 
             # Parse output based on framework
-            test_result = self._parse_output(framework, result.stdout, result.stderr, result.returncode)
+            test_result = self._parse_output(
+                framework, result.stdout, result.stderr, result.returncode
+            )
 
             self.logger.info(
                 "Test execution completed",
@@ -378,8 +386,7 @@ class TestRunner:
         # Extract test counts from summary line
         # Example: "====== 1 failed, 2 passed in 0.50s ======"
         summary_match = re.search(
-            r'(\d+)\s+failed.*?(\d+)\s+passed.*?in\s+([\d.]+)s',
-            output
+            r"(\d+)\s+failed.*?(\d+)\s+passed.*?in\s+([\d.]+)s", output
         )
 
         if summary_match:
@@ -388,9 +395,9 @@ class TestRunner:
             exec_time = float(summary_match.group(3))
         else:
             # Try alternative format
-            failed_match = re.search(r'(\d+)\s+failed', output)
-            passed_match = re.search(r'(\d+)\s+passed', output)
-            time_match = re.search(r'in\s+([\d.]+)s', output)
+            failed_match = re.search(r"(\d+)\s+failed", output)
+            passed_match = re.search(r"(\d+)\s+passed", output)
+            time_match = re.search(r"in\s+([\d.]+)s", output)
 
             failed = int(failed_match.group(1)) if failed_match else 0
             passed = int(passed_match.group(1)) if passed_match else 0
@@ -401,7 +408,7 @@ class TestRunner:
         # Extract failures
         # Look for test_file.py::test_name FAILED
         # Format: "tests/test_foo.py::test_two FAILED                                       [ 66%]"
-        failure_pattern = r'(.*?)::(.*?)\s+FAILED'
+        failure_pattern = r"(.*?)::(.*?)\s+FAILED"
         for match in re.finditer(failure_pattern, output):
             test_file = match.group(1).strip()
             test_name = match.group(2).strip()
@@ -410,31 +417,37 @@ class TestRunner:
             # Try to extract stack trace and error from FAILURES section
             stack_trace = None
             # Look for underlined test name section
-            trace_pattern = rf'_+\s*{re.escape(test_name)}\s*_+\s*\n(.*?)(?=\n_+\s*[a-zA-Z]|====|$)'
+            trace_pattern = (
+                rf"_+\s*{re.escape(test_name)}\s*_+\s*\n(.*?)(?=\n_+\s*[a-zA-Z]|====|$)"
+            )
             trace_match = re.search(trace_pattern, output, re.DOTALL)
             if trace_match:
                 stack_trace = trace_match.group(1).strip()
                 # Extract error message from stack trace if not in FAILED line
                 if not error_msg:
                     # Look for E       AssertionError or similar
-                    error_match = re.search(r'E\s+(.*?)(?=\n)', stack_trace)
+                    error_match = re.search(r"E\s+(.*?)(?=\n)", stack_trace)
                     if error_match:
                         error_msg = error_match.group(1).strip()
                     else:
                         # Look for last line with file:line: error
-                        error_match = re.search(r':\d+:\s+(.+)$', stack_trace, re.MULTILINE)
+                        error_match = re.search(
+                            r":\d+:\s+(.+)$", stack_trace, re.MULTILINE
+                        )
                         if error_match:
                             error_msg = error_match.group(1).strip()
 
             if not error_msg:
                 error_msg = "Test failed"
 
-            failures.append(TestFailure(
-                test_name=test_name,
-                test_file=test_file,
-                error_message=error_msg,
-                stack_trace=stack_trace,
-            ))
+            failures.append(
+                TestFailure(
+                    test_name=test_name,
+                    test_file=test_file,
+                    error_message=error_msg,
+                    stack_trace=stack_trace,
+                )
+            )
 
         return TestResult(
             framework=TestFramework.PYTEST,
@@ -454,8 +467,8 @@ class TestRunner:
 
         # Extract test counts
         # Example: "Ran 3 tests in 0.001s\nFAILED (failures=1)"
-        ran_match = re.search(r'Ran\s+(\d+)\s+tests?\s+in\s+([\d.]+)s', output)
-        failed_match = re.search(r'FAILED\s+\(.*?failures?=(\d+)', output)
+        ran_match = re.search(r"Ran\s+(\d+)\s+tests?\s+in\s+([\d.]+)s", output)
+        failed_match = re.search(r"FAILED\s+\(.*?failures?=(\d+)", output)
 
         total_tests = int(ran_match.group(1)) if ran_match else 0
         exec_time = float(ran_match.group(2)) if ran_match else 0.0
@@ -464,17 +477,19 @@ class TestRunner:
 
         # Extract failures
         # Look for FAIL: test_name (module.TestClass)
-        failure_pattern = r'FAIL:\s+(.*?)\s+\((.*?)\)\n(.*?)(?=\n\n|$)'
+        failure_pattern = r"FAIL:\s+(.*?)\s+\((.*?)\)\n(.*?)(?=\n\n|$)"
         for match in re.finditer(failure_pattern, output, re.DOTALL):
             test_name = match.group(1)
             test_class = match.group(2)
             error_msg = match.group(3).strip()
 
-            failures.append(TestFailure(
-                test_name=test_name,
-                test_file=test_class,
-                error_message=error_msg,
-            ))
+            failures.append(
+                TestFailure(
+                    test_name=test_name,
+                    test_file=test_class,
+                    error_message=error_msg,
+                )
+            )
 
         return TestResult(
             framework=TestFramework.UNITTEST,
@@ -494,10 +509,10 @@ class TestRunner:
 
         # Extract test counts from Jest summary
         # Example: "Tests: 1 failed, 2 passed, 3 total"
-        failed_match = re.search(r'Tests:.*?(\d+)\s+failed', output)
-        passed_match = re.search(r'(\d+)\s+passed', output)
-        total_match = re.search(r'(\d+)\s+total', output)
-        time_match = re.search(r'Time:\s+([\d.]+)\s*s', output)
+        failed_match = re.search(r"Tests:.*?(\d+)\s+failed", output)
+        passed_match = re.search(r"(\d+)\s+passed", output)
+        total_match = re.search(r"(\d+)\s+total", output)
+        time_match = re.search(r"Time:\s+([\d.]+)\s*s", output)
 
         failed = int(failed_match.group(1)) if failed_match else 0
         passed = int(passed_match.group(1)) if passed_match else 0
@@ -506,17 +521,19 @@ class TestRunner:
 
         # Extract failures
         # Jest format: ● test suite › test name
-        failure_pattern = r'●\s+(.*?)\s+›\s+(.*?)\n\s+(.*?)(?=\n\s+●|$)'
+        failure_pattern = r"●\s+(.*?)\s+›\s+(.*?)\n\s+(.*?)(?=\n\s+●|$)"
         for match in re.finditer(failure_pattern, output, re.DOTALL):
             test_suite = match.group(1)
             test_name = match.group(2)
             error_msg = match.group(3).strip()
 
-            failures.append(TestFailure(
-                test_name=test_name,
-                test_file=test_suite,
-                error_message=error_msg,
-            ))
+            failures.append(
+                TestFailure(
+                    test_name=test_name,
+                    test_file=test_suite,
+                    error_message=error_msg,
+                )
+            )
 
         return TestResult(
             framework=TestFramework.JEST,
@@ -535,25 +552,27 @@ class TestRunner:
         failures = []
 
         # Count PASS and FAIL lines (but only test results, not final FAIL line)
-        pass_count = len(re.findall(r'^---\s+PASS:', output, re.MULTILINE))
-        fail_count = len(re.findall(r'^---\s+FAIL:', output, re.MULTILINE))
+        pass_count = len(re.findall(r"^---\s+PASS:", output, re.MULTILINE))
+        fail_count = len(re.findall(r"^---\s+FAIL:", output, re.MULTILINE))
 
         # Extract execution time
-        time_match = re.search(r'FAIL.*?(\d+\.\d+)s', output)
+        time_match = re.search(r"FAIL.*?(\d+\.\d+)s", output)
         exec_time = float(time_match.group(1)) if time_match else 0.0
 
         # Extract failures
         # Go format: --- FAIL: TestName (0.00s)
-        failure_pattern = r'---\s+FAIL:\s+(.*?)\s+\(([\d.]+)s\)\n\s+(.*?)(?=\n---|$)'
+        failure_pattern = r"---\s+FAIL:\s+(.*?)\s+\(([\d.]+)s\)\n\s+(.*?)(?=\n---|$)"
         for match in re.finditer(failure_pattern, output, re.DOTALL):
             test_name = match.group(1)
             error_msg = match.group(3).strip()
 
-            failures.append(TestFailure(
-                test_name=test_name,
-                test_file="go_test",
-                error_message=error_msg,
-            ))
+            failures.append(
+                TestFailure(
+                    test_name=test_name,
+                    test_file="go_test",
+                    error_message=error_msg,
+                )
+            )
 
         return TestResult(
             framework=TestFramework.GO_TEST,
@@ -573,9 +592,9 @@ class TestRunner:
 
         # Extract test counts
         # Example: "3 examples, 1 failure"
-        examples_match = re.search(r'(\d+)\s+examples?', output)
-        failures_match = re.search(r'(\d+)\s+failures?', output)
-        time_match = re.search(r'Finished in\s+([\d.]+)\s+seconds?', output)
+        examples_match = re.search(r"(\d+)\s+examples?", output)
+        failures_match = re.search(r"(\d+)\s+failures?", output)
+        time_match = re.search(r"Finished in\s+([\d.]+)\s+seconds?", output)
 
         total_tests = int(examples_match.group(1)) if examples_match else 0
         failed = int(failures_match.group(1)) if failures_match else 0
@@ -584,16 +603,18 @@ class TestRunner:
 
         # Extract failures
         # RSpec format: Failure/Error: expect(...)
-        failure_pattern = r'Failure/Error:\s+(.*?)\n\s+(.*?)(?=\n\s+#|$)'
+        failure_pattern = r"Failure/Error:\s+(.*?)\n\s+(.*?)(?=\n\s+#|$)"
         for match in re.finditer(failure_pattern, output, re.DOTALL):
             test_code = match.group(1).strip()
             error_msg = match.group(2).strip()
 
-            failures.append(TestFailure(
-                test_name=test_code,
-                test_file="rspec",
-                error_message=error_msg,
-            ))
+            failures.append(
+                TestFailure(
+                    test_name=test_code,
+                    test_file="rspec",
+                    error_message=error_msg,
+                )
+            )
 
         return TestResult(
             framework=TestFramework.RSPEC,
@@ -636,10 +657,12 @@ class TestRunner:
     def _is_test_file(self, path: Path) -> bool:
         """Check if file is a test file."""
         test_patterns = [
-            'test_*.py', '*_test.py',  # Python
-            '*.test.js', '*.spec.js',  # JavaScript
-            '*_test.go',               # Go
-            '*_spec.rb',               # Ruby
+            "test_*.py",
+            "*_test.py",  # Python
+            "*.test.js",
+            "*.spec.js",  # JavaScript
+            "*_test.go",  # Go
+            "*_spec.rb",  # Ruby
         ]
 
         for pattern in test_patterns:

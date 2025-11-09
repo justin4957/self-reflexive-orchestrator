@@ -6,13 +6,18 @@ from dataclasses import dataclass, asdict, field
 from enum import Enum
 
 from ..core.logger import AuditLogger, EventType
-from ..integrations.multi_agent_coder_client import MultiAgentCoderClient, MultiAgentResponse, MultiAgentStrategy
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 from ..analyzers.issue_analyzer import IssueAnalysis
 from github.Issue import Issue
 
 
 class PlanConfidence(Enum):
     """Confidence level in implementation plan."""
+
     LOW = "low"  # < 0.60
     MEDIUM = "medium"  # 0.60 - 0.79
     HIGH = "high"  # 0.80 - 0.89
@@ -22,11 +27,14 @@ class PlanConfidence(Enum):
 @dataclass
 class ImplementationStep:
     """A single step in the implementation plan."""
+
     step_number: int
     description: str
     files_affected: List[str]
     estimated_complexity: int  # 1-10
-    dependencies: List[int] = field(default_factory=list)  # Step numbers this depends on
+    dependencies: List[int] = field(
+        default_factory=list
+    )  # Step numbers this depends on
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -36,6 +44,7 @@ class ImplementationStep:
 @dataclass
 class TestStrategy:
     """Test strategy for implementation."""
+
     unit_tests_to_create: List[str]
     unit_tests_to_modify: List[str]
     integration_tests_to_create: List[str]
@@ -50,6 +59,7 @@ class TestStrategy:
 @dataclass
 class ImplementationPlan:
     """Complete implementation plan for a GitHub issue."""
+
     issue_number: int
     branch_name: str
 
@@ -84,9 +94,11 @@ class ImplementationPlan:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         result = asdict(self)
-        result['confidence_level'] = self.confidence_level.value
-        result['implementation_steps'] = [step.to_dict() for step in self.implementation_steps]
-        result['test_strategy'] = self.test_strategy.to_dict()
+        result["confidence_level"] = self.confidence_level.value
+        result["implementation_steps"] = [
+            step.to_dict() for step in self.implementation_steps
+        ]
+        result["test_strategy"] = self.test_strategy.to_dict()
         return result
 
 
@@ -291,16 +303,25 @@ Format your response with clear sections and bullet points.
         branch_name = self._generate_branch_name(issue)
 
         # Generate PR title and description
-        pr_title, pr_description = self._generate_pr_template(issue, analysis, implementation_steps)
+        pr_title, pr_description = self._generate_pr_template(
+            issue, analysis, implementation_steps
+        )
 
         # Extract validation criteria
         validation_criteria = self._extract_validation_criteria(approaches)
 
         # Calculate complexity
-        total_complexity = self._calculate_total_complexity(approaches, implementation_steps)
+        total_complexity = self._calculate_total_complexity(
+            approaches, implementation_steps
+        )
 
         # Calculate confidence
-        consensus_confidence = self._calculate_confidence(approaches, len(files_to_modify), len(files_to_create), len(implementation_steps))
+        consensus_confidence = self._calculate_confidence(
+            approaches,
+            len(files_to_modify),
+            len(files_to_create),
+            len(implementation_steps),
+        )
         confidence_level = self._get_confidence_level(consensus_confidence)
 
         return ImplementationPlan(
@@ -328,14 +349,22 @@ Format your response with clear sections and bullet points.
 
         for provider, response in approaches.responses.items():
             # Look for "Files to Modify" section
-            matches = re.findall(r'(?:files? to modify|modify:?)[:\s]+([^\n]+)', response, re.IGNORECASE)
+            matches = re.findall(
+                r"(?:files? to modify|modify:?)[:\s]+([^\n]+)", response, re.IGNORECASE
+            )
             for match in matches:
                 # Extract file paths (look for Python files, config files, etc.)
-                file_paths = re.findall(r'`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?', match)
+                file_paths = re.findall(
+                    r"`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?", match
+                )
                 files.update(file_paths)
 
             # Also look for inline file mentions
-            file_paths = re.findall(r'(?:^|\s)-\s*`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?', response, re.MULTILINE)
+            file_paths = re.findall(
+                r"(?:^|\s)-\s*`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?",
+                response,
+                re.MULTILINE,
+            )
             files.update(file_paths)
 
         return sorted(list(files))
@@ -346,44 +375,65 @@ Format your response with clear sections and bullet points.
 
         for provider, response in approaches.responses.items():
             # Look for "Files to Create" section
-            matches = re.findall(r'(?:files? to create|create:?)[:\s]+([^\n]+)', response, re.IGNORECASE)
+            matches = re.findall(
+                r"(?:files? to create|create:?)[:\s]+([^\n]+)", response, re.IGNORECASE
+            )
             for match in matches:
-                file_paths = re.findall(r'`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?', match)
+                file_paths = re.findall(
+                    r"`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?", match
+                )
                 files.update(file_paths)
 
             # Look for "Create:" or "New:" prefixes
-            new_files = re.findall(r'(?:Create|New):\s*`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?', response, re.MULTILINE)
+            new_files = re.findall(
+                r"(?:Create|New):\s*`?([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`?",
+                response,
+                re.MULTILINE,
+            )
             files.update(new_files)
 
         return sorted(list(files))
 
-    def _extract_implementation_steps(self, approaches: MultiAgentResponse) -> List[ImplementationStep]:
+    def _extract_implementation_steps(
+        self, approaches: MultiAgentResponse
+    ) -> List[ImplementationStep]:
         """Extract implementation steps from multi-agent responses."""
         all_steps = []
 
         for provider, response in approaches.responses.items():
             # Look for numbered steps
-            step_matches = re.findall(r'(?:^|\n)\s*(\d+)\.\s*\*?\*?(.+?)(?:\n|$)', response, re.MULTILINE)
+            step_matches = re.findall(
+                r"(?:^|\n)\s*(\d+)\.\s*\*?\*?(.+?)(?:\n|$)", response, re.MULTILINE
+            )
 
             for step_num_str, description in step_matches:
                 try:
                     step_num = int(step_num_str)
                     if step_num <= 20:  # Reasonable limit
                         # Extract complexity if mentioned
-                        complexity_match = re.search(r'complexity[:\s]+(\d+)', description, re.IGNORECASE)
-                        complexity = int(complexity_match.group(1)) if complexity_match else 5
+                        complexity_match = re.search(
+                            r"complexity[:\s]+(\d+)", description, re.IGNORECASE
+                        )
+                        complexity = (
+                            int(complexity_match.group(1)) if complexity_match else 5
+                        )
                         complexity = min(complexity, self.MAX_STEP_COMPLEXITY)
 
                         # Extract file mentions in this step
-                        files_in_step = re.findall(r'`([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`', description)
+                        files_in_step = re.findall(
+                            r"`([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`",
+                            description,
+                        )
 
-                        all_steps.append({
-                            'step_number': step_num,
-                            'description': description.strip(),
-                            'files_affected': files_in_step,
-                            'complexity': complexity,
-                            'provider': provider,
-                        })
+                        all_steps.append(
+                            {
+                                "step_number": step_num,
+                                "description": description.strip(),
+                                "files_affected": files_in_step,
+                                "complexity": complexity,
+                                "provider": provider,
+                            }
+                        )
                 except ValueError:
                     continue
 
@@ -392,7 +442,9 @@ Format your response with clear sections and bullet points.
 
         return merged_steps
 
-    def _merge_similar_steps(self, all_steps: List[Dict[str, Any]]) -> List[ImplementationStep]:
+    def _merge_similar_steps(
+        self, all_steps: List[Dict[str, Any]]
+    ) -> List[ImplementationStep]:
         """Merge similar steps from different providers."""
         if not all_steps:
             return []
@@ -400,7 +452,7 @@ Format your response with clear sections and bullet points.
         # Group by step number
         steps_by_number = {}
         for step in all_steps:
-            num = step['step_number']
+            num = step["step_number"]
             if num not in steps_by_number:
                 steps_by_number[num] = []
             steps_by_number[num].append(step)
@@ -411,23 +463,25 @@ Format your response with clear sections and bullet points.
             steps = steps_by_number[step_num]
 
             # Use the most detailed description
-            description = max(steps, key=lambda s: len(s['description']))['description']
+            description = max(steps, key=lambda s: len(s["description"]))["description"]
 
             # Combine all files mentioned
             all_files = set()
             for step in steps:
-                all_files.update(step['files_affected'])
+                all_files.update(step["files_affected"])
 
             # Average complexity
-            avg_complexity = sum(s['complexity'] for s in steps) // len(steps)
+            avg_complexity = sum(s["complexity"] for s in steps) // len(steps)
 
-            merged.append(ImplementationStep(
-                step_number=step_num,
-                description=description,
-                files_affected=sorted(list(all_files)),
-                estimated_complexity=avg_complexity,
-                dependencies=[],  # TODO: Extract dependencies from descriptions
-            ))
+            merged.append(
+                ImplementationStep(
+                    step_number=step_num,
+                    description=description,
+                    files_affected=sorted(list(all_files)),
+                    estimated_complexity=avg_complexity,
+                    dependencies=[],  # TODO: Extract dependencies from descriptions
+                )
+            )
 
         return merged
 
@@ -441,19 +495,29 @@ Format your response with clear sections and bullet points.
 
         for provider, response in approaches.responses.items():
             # Look for test file mentions
-            test_files = re.findall(r'test_([a-zA-Z0-9_]+)\.py', response)
-            unit_tests_create.update([f"tests/unit/test_{name}.py" for name in test_files])
+            test_files = re.findall(r"test_([a-zA-Z0-9_]+)\.py", response)
+            unit_tests_create.update(
+                [f"tests/unit/test_{name}.py" for name in test_files]
+            )
 
             # Look for integration tests
-            integration_matches = re.findall(r'integration[:\s]+test_([a-zA-Z0-9_]+)', response, re.IGNORECASE)
-            integration_tests.update([f"tests/integration/test_{name}.py" for name in integration_matches])
+            integration_matches = re.findall(
+                r"integration[:\s]+test_([a-zA-Z0-9_]+)", response, re.IGNORECASE
+            )
+            integration_tests.update(
+                [f"tests/integration/test_{name}.py" for name in integration_matches]
+            )
 
             # Look for fixtures
-            fixture_matches = re.findall(r'fixture[s]?:?\s*([a-zA-Z0-9_/]+)', response, re.IGNORECASE)
+            fixture_matches = re.findall(
+                r"fixture[s]?:?\s*([a-zA-Z0-9_/]+)", response, re.IGNORECASE
+            )
             fixtures.update(fixture_matches)
 
             # Look for coverage mentions
-            coverage_match = re.search(r'coverage[:\s]+([^\n]+)', response, re.IGNORECASE)
+            coverage_match = re.search(
+                r"coverage[:\s]+([^\n]+)", response, re.IGNORECASE
+            )
             if coverage_match:
                 coverage = coverage_match.group(1).strip()
 
@@ -476,10 +540,10 @@ Format your response with clear sections and bullet points.
         """
         # Create slug from title
         slug = issue.title.lower()
-        slug = re.sub(r'[^\w\s-]', '', slug)  # Remove special chars
-        slug = re.sub(r'[-\s]+', '-', slug)  # Replace spaces/dashes with single dash
+        slug = re.sub(r"[^\w\s-]", "", slug)  # Remove special chars
+        slug = re.sub(r"[-\s]+", "-", slug)  # Replace spaces/dashes with single dash
         slug = slug[:50]  # Limit length
-        slug = slug.strip('-')  # Remove trailing dashes
+        slug = slug.strip("-")  # Remove trailing dashes
 
         return f"orchestrator/issue-{issue.number}-{slug}"
 
@@ -543,15 +607,23 @@ Fixes #{issue.number}
 
         for provider, response in approaches.responses.items():
             # Look for validation section
-            validation_match = re.search(r'validation[:\s]+(.+?)(?:\n\n|\Z)', response, re.IGNORECASE | re.DOTALL)
+            validation_match = re.search(
+                r"validation[:\s]+(.+?)(?:\n\n|\Z)", response, re.IGNORECASE | re.DOTALL
+            )
             if validation_match:
                 validation_text = validation_match.group(1)
                 # Extract bullet points
-                bullets = re.findall(r'(?:^|\n)\s*[-*]\s*(.+?)(?:\n|$)', validation_text)
+                bullets = re.findall(
+                    r"(?:^|\n)\s*[-*]\s*(.+?)(?:\n|$)", validation_text
+                )
                 criteria.update([b.strip() for b in bullets if b.strip()])
 
         if not criteria:
-            criteria = {"All tests pass", "Code follows project style", "No regressions"}
+            criteria = {
+                "All tests pass",
+                "Code follows project style",
+                "No regressions",
+            }
 
         return sorted(list(criteria))
 
@@ -565,7 +637,9 @@ Fixes #{issue.number}
         complexity_values = []
 
         for provider, response in approaches.responses.items():
-            complexity_match = re.search(r'(?:overall|total)\s+complexity[:\s]+(\d+)', response, re.IGNORECASE)
+            complexity_match = re.search(
+                r"(?:overall|total)\s+complexity[:\s]+(\d+)", response, re.IGNORECASE
+            )
             if complexity_match:
                 try:
                     complexity_values.append(int(complexity_match.group(1)))
@@ -576,7 +650,9 @@ Fixes #{issue.number}
             avg_complexity = sum(complexity_values) // len(complexity_values)
         elif steps:
             # Average of step complexities
-            avg_complexity = sum(step.estimated_complexity for step in steps) // max(len(steps), 1)
+            avg_complexity = sum(step.estimated_complexity for step in steps) // max(
+                len(steps), 1
+            )
         else:
             avg_complexity = 5  # Default moderate
 
@@ -611,7 +687,9 @@ Fixes #{issue.number}
             specificity_score += 0.2
 
         # Boost for detailed responses (longer is generally more detailed)
-        avg_response_length = sum(len(r) for r in approaches.responses.values()) / max(len(approaches.responses), 1)
+        avg_response_length = sum(len(r) for r in approaches.responses.values()) / max(
+            len(approaches.responses), 1
+        )
         detail_score = min(avg_response_length / 5000, 0.2)  # Cap at 0.2
 
         confidence = (response_rate * 0.6) + specificity_score + detail_score
@@ -660,7 +738,9 @@ Fixes #{issue.number}
                 ImplementationStep(
                     step_number=1,
                     description="Implement solution based on issue requirements",
-                    files_affected=analysis.affected_files if analysis.affected_files else [],
+                    files_affected=(
+                        analysis.affected_files if analysis.affected_files else []
+                    ),
                     estimated_complexity=analysis.complexity_score,
                 )
             ],

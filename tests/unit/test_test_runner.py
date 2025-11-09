@@ -26,7 +26,7 @@ class TestTestRunner(unittest.TestCase):
         self.repo_path = Path("/fake/repo")
 
         # Don't verify path exists in tests
-        with patch.object(Path, 'exists', return_value=True):
+        with patch.object(Path, "exists", return_value=True):
             self.runner = TestRunner(
                 repo_path=self.repo_path,
                 logger=self.logger,
@@ -47,17 +47,22 @@ class TestTestRunner(unittest.TestCase):
                 logger=self.logger,
             )
 
-    @patch('pathlib.Path.exists')
+    @patch("pathlib.Path.exists")
     def test_detect_framework_pytest(self, mock_exists):
         """Test pytest framework detection."""
+
         # Mock pytest.ini exists
         def exists_side_effect(path_self):
-            return str(path_self).endswith('pytest.ini')
+            return str(path_self).endswith("pytest.ini")
 
-        with patch.object(Path, 'exists', side_effect=lambda: exists_side_effect(Path('pytest.ini'))):
+        with patch.object(
+            Path, "exists", side_effect=lambda: exists_side_effect(Path("pytest.ini"))
+        ):
             mock_exists.return_value = True
-            with patch.object(Path, '__truediv__', return_value=Path('/fake/repo/pytest.ini')):
-                with patch.object(Path, 'exists', return_value=True):
+            with patch.object(
+                Path, "__truediv__", return_value=Path("/fake/repo/pytest.ini")
+            ):
+                with patch.object(Path, "exists", return_value=True):
                     framework = self.runner.detect_framework()
                     self.assertEqual(framework, TestFramework.PYTEST)
 
@@ -68,33 +73,34 @@ class TestTestRunner(unittest.TestCase):
 
         def exists_side_effect(path_self):
             path_str = str(path_self)
-            return 'jest.config.js' in path_str
+            return "jest.config.js" in path_str
 
-        with patch.object(Path, 'exists', new=lambda self: exists_side_effect(self)):
-            with patch.object(Path, 'glob', return_value=[]):
+        with patch.object(Path, "exists", new=lambda self: exists_side_effect(self)):
+            with patch.object(Path, "glob", return_value=[]):
                 framework = self.runner.detect_framework()
                 self.assertEqual(framework, TestFramework.JEST)
 
     def test_detect_framework_fallback_pytest(self):
         """Test fallback to pytest when tests directory exists."""
-        with patch('pathlib.Path.glob', return_value=[]):
+        with patch("pathlib.Path.glob", return_value=[]):
             # Mock tests directory exists
             original_truediv = Path.__truediv__
+
             def mock_truediv(self, other):
                 result = original_truediv(self, other)
                 # Make tests directory return True for exists()
-                if 'tests' in str(result):
-                    with patch.object(type(result), 'exists', return_value=True):
+                if "tests" in str(result):
+                    with patch.object(type(result), "exists", return_value=True):
                         return result
                 return result
 
-            with patch.object(Path, '__truediv__', mock_truediv):
-                with patch.object(Path, 'exists', return_value=True):
+            with patch.object(Path, "__truediv__", mock_truediv):
+                with patch.object(Path, "exists", return_value=True):
                     framework = self.runner.detect_framework()
                     self.assertEqual(framework, TestFramework.PYTEST)
 
-    @patch('pathlib.Path.glob')
-    @patch('pathlib.Path.exists')
+    @patch("pathlib.Path.glob")
+    @patch("pathlib.Path.exists")
     def test_detect_framework_not_found(self, mock_exists, mock_glob):
         """Test framework detection failure."""
         mock_glob.return_value = []
@@ -106,27 +112,26 @@ class TestTestRunner(unittest.TestCase):
     def test_build_test_command_pytest(self):
         """Test pytest command building."""
         command = self.runner._build_test_command(TestFramework.PYTEST)
-        self.assertEqual(command[:3], ['python', '-m', 'pytest'])
-        self.assertIn('-v', command)
+        self.assertEqual(command[:3], ["python", "-m", "pytest"])
+        self.assertIn("-v", command)
 
     def test_build_test_command_pytest_with_paths(self):
         """Test pytest command with specific paths."""
         command = self.runner._build_test_command(
-            TestFramework.PYTEST,
-            test_paths=['tests/test_foo.py']
+            TestFramework.PYTEST, test_paths=["tests/test_foo.py"]
         )
-        self.assertIn('tests/test_foo.py', command)
+        self.assertIn("tests/test_foo.py", command)
 
     def test_build_test_command_jest(self):
         """Test jest command building."""
         command = self.runner._build_test_command(TestFramework.JEST)
-        self.assertEqual(command[:2], ['npm', 'test'])
+        self.assertEqual(command[:2], ["npm", "test"])
 
     def test_build_test_command_go(self):
         """Test go test command building."""
         command = self.runner._build_test_command(TestFramework.GO_TEST)
-        self.assertIn('go', command)
-        self.assertIn('test', command)
+        self.assertIn("go", command)
+        self.assertIn("test", command)
 
     def test_build_test_command_unsupported(self):
         """Test unsupported framework raises error."""
@@ -183,8 +188,8 @@ tests/test_foo.py:10: AssertionError
         self.assertEqual(len(result.failures), 1)
 
         failure = result.failures[0]
-        self.assertIn('test_two', failure.test_name)
-        self.assertIn('AssertionError', failure.error_message)
+        self.assertIn("test_two", failure.test_name)
+        self.assertIn("AssertionError", failure.error_message)
 
     def test_parse_unittest_output(self):
         """Test parsing unittest output."""
@@ -254,8 +259,8 @@ FAIL    example.com/package    0.01s
         self.assertEqual(result.passed, 1)
         self.assertEqual(result.failed, 1)
 
-    @patch('subprocess.run')
-    @patch.object(TestRunner, 'detect_framework')
+    @patch("subprocess.run")
+    @patch.object(TestRunner, "detect_framework")
     def test_run_tests_success(self, mock_detect, mock_run):
         """Test successful test execution."""
         mock_detect.return_value = TestFramework.PYTEST
@@ -272,7 +277,7 @@ FAIL    example.com/package    0.01s
         self.assertEqual(result.framework, TestFramework.PYTEST)
         mock_run.assert_called_once()
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_run_tests_with_framework_specified(self, mock_run):
         """Test running tests with specific framework."""
         mock_result = Mock()
@@ -286,18 +291,18 @@ FAIL    example.com/package    0.01s
         self.assertEqual(result.framework, TestFramework.PYTEST)
         self.assertTrue(result.success)
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_run_tests_timeout(self, mock_run):
         """Test test execution timeout handling."""
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd=['pytest'], timeout=30)
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd=["pytest"], timeout=30)
 
         result = self.runner.run_tests(framework=TestFramework.PYTEST)
 
         self.assertFalse(result.success)
         self.assertEqual(result.exit_code, -1)
-        self.assertIn('timed out', result.output)
+        self.assertIn("timed out", result.output)
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_run_tests_exception(self, mock_run):
         """Test test execution exception handling."""
         mock_run.side_effect = Exception("Test execution failed")
@@ -305,49 +310,49 @@ FAIL    example.com/package    0.01s
         result = self.runner.run_tests(framework=TestFramework.PYTEST)
 
         self.assertFalse(result.success)
-        self.assertIn('error', result.output.lower())
+        self.assertIn("error", result.output.lower())
 
     def test_is_test_file_python(self):
         """Test Python test file detection."""
-        self.assertTrue(self.runner._is_test_file(Path('test_foo.py')))
-        self.assertTrue(self.runner._is_test_file(Path('foo_test.py')))
-        self.assertFalse(self.runner._is_test_file(Path('foo.py')))
+        self.assertTrue(self.runner._is_test_file(Path("test_foo.py")))
+        self.assertTrue(self.runner._is_test_file(Path("foo_test.py")))
+        self.assertFalse(self.runner._is_test_file(Path("foo.py")))
 
     def test_is_test_file_javascript(self):
         """Test JavaScript test file detection."""
-        self.assertTrue(self.runner._is_test_file(Path('foo.test.js')))
-        self.assertTrue(self.runner._is_test_file(Path('foo.spec.js')))
-        self.assertFalse(self.runner._is_test_file(Path('foo.js')))
+        self.assertTrue(self.runner._is_test_file(Path("foo.test.js")))
+        self.assertTrue(self.runner._is_test_file(Path("foo.spec.js")))
+        self.assertFalse(self.runner._is_test_file(Path("foo.js")))
 
     def test_is_test_file_go(self):
         """Test Go test file detection."""
-        self.assertTrue(self.runner._is_test_file(Path('foo_test.go')))
-        self.assertFalse(self.runner._is_test_file(Path('foo.go')))
+        self.assertTrue(self.runner._is_test_file(Path("foo_test.go")))
+        self.assertFalse(self.runner._is_test_file(Path("foo.go")))
 
     def test_find_corresponding_test(self):
         """Test finding corresponding test file."""
-        source_file = Path('/fake/repo/src/foo.py')
+        source_file = Path("/fake/repo/src/foo.py")
 
         # Mock exists to return True for tests directory and test_foo.py
         def exists_side_effect(path_self):
             path_str = str(path_self)
             # Return True for tests directory and test_foo.py file
-            return 'tests' in path_str or 'test_foo.py' in path_str
+            return "tests" in path_str or "test_foo.py" in path_str
 
-        with patch.object(Path, 'exists', new=lambda self: exists_side_effect(self)):
+        with patch.object(Path, "exists", new=lambda self: exists_side_effect(self)):
             test_file = self.runner._find_corresponding_test(source_file)
 
             # Should find test_foo.py in tests directory
             self.assertIsNotNone(test_file)
 
-    @patch('pathlib.Path.exists')
+    @patch("pathlib.Path.exists")
     def test_get_changed_test_files(self, mock_exists):
         """Test getting test files for changed source files."""
         mock_exists.return_value = True
 
         # Test file is already a test
-        test_files = self.runner.get_changed_test_files(['tests/test_foo.py'])
-        self.assertIn('tests/test_foo.py', test_files)
+        test_files = self.runner.get_changed_test_files(["tests/test_foo.py"])
+        self.assertIn("tests/test_foo.py", test_files)
 
     def test_test_failure_to_dict(self):
         """Test TestFailure to_dict conversion."""
@@ -362,10 +367,10 @@ FAIL    example.com/package    0.01s
 
         failure_dict = failure.to_dict()
 
-        self.assertEqual(failure_dict['test_name'], "test_example")
-        self.assertEqual(failure_dict['test_file'], "test_foo.py")
-        self.assertEqual(failure_dict['line_number'], 42)
-        self.assertEqual(failure_dict['failure_type'], "assertion")
+        self.assertEqual(failure_dict["test_name"], "test_example")
+        self.assertEqual(failure_dict["test_file"], "test_foo.py")
+        self.assertEqual(failure_dict["line_number"], 42)
+        self.assertEqual(failure_dict["failure_type"], "assertion")
 
     def test_test_result_to_dict(self):
         """Test TestResult to_dict conversion."""
@@ -382,12 +387,12 @@ FAIL    example.com/package    0.01s
 
         result_dict = result.to_dict()
 
-        self.assertEqual(result_dict['framework'], 'pytest')
-        self.assertEqual(result_dict['total_tests'], 10)
-        self.assertEqual(result_dict['passed'], 8)
-        self.assertEqual(result_dict['failed'], 2)
-        self.assertFalse(result_dict['success'])
-        self.assertTrue(result_dict['has_failures'])
+        self.assertEqual(result_dict["framework"], "pytest")
+        self.assertEqual(result_dict["total_tests"], 10)
+        self.assertEqual(result_dict["passed"], 8)
+        self.assertEqual(result_dict["failed"], 2)
+        self.assertFalse(result_dict["success"])
+        self.assertTrue(result_dict["has_failures"])
 
     def test_test_result_success_property(self):
         """Test TestResult success property."""
@@ -444,5 +449,5 @@ FAIL    example.com/package    0.01s
         self.assertEqual(TestStatus.SKIPPED.value, "skipped")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

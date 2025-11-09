@@ -250,8 +250,14 @@ class GitHubClient:
                         "name": check.name,
                         "status": check.status,
                         "conclusion": check.conclusion,
-                        "started_at": check.started_at.isoformat() if check.started_at else None,
-                        "completed_at": check.completed_at.isoformat() if check.completed_at else None,
+                        "started_at": (
+                            check.started_at.isoformat() if check.started_at else None
+                        ),
+                        "completed_at": (
+                            check.completed_at.isoformat()
+                            if check.completed_at
+                            else None
+                        ),
                     }
                 )
 
@@ -272,7 +278,8 @@ class GitHubClient:
             elif any(c.get("conclusion") == "failure" for c in all_checks):
                 overall = "failed"
             elif all(
-                c.get("conclusion") in ["success", "neutral", "skipped"] or c.get("status") == "success"
+                c.get("conclusion") in ["success", "neutral", "skipped"]
+                or c.get("status") == "success"
                 for c in all_checks
             ):
                 overall = "passed"

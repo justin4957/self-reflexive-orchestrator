@@ -611,7 +611,9 @@ class TestTestFailureAnalyzer(unittest.TestCase):
         self.assertGreater(analysis.analysis_confidence, 0.7)
 
         # Verify root causes
-        self.assertEqual(analysis.root_causes[0].category, FailureCategory.ASSERTION_ERROR)
+        self.assertEqual(
+            analysis.root_causes[0].category, FailureCategory.ASSERTION_ERROR
+        )
 
         # Verify fix suggestions
         best_fix = self.analyzer.get_best_fix(analysis)
@@ -620,5 +622,5 @@ class TestTestFailureAnalyzer(unittest.TestCase):
         self.assertGreater(best_fix.success_probability, 0.9)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

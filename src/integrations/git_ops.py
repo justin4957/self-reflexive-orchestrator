@@ -13,6 +13,7 @@ from ..core.logger import AuditLogger, EventType
 @dataclass
 class GitStatus:
     """Current git repository status."""
+
     current_branch: str
     has_uncommitted_changes: bool
     staged_files: List[str]
@@ -33,6 +34,7 @@ class GitStatus:
 @dataclass
 class CommitInfo:
     """Information about a git commit."""
+
     commit_hash: str
     message: str
     author: str
@@ -52,16 +54,19 @@ class CommitInfo:
 
 class GitOpsError(Exception):
     """Base exception for git operations."""
+
     pass
 
 
 class GitBranchError(GitOpsError):
     """Exception for branch operations."""
+
     pass
 
 
 class GitCommitError(GitOpsError):
     """Exception for commit operations."""
+
     pass
 
 
@@ -120,7 +125,9 @@ class GitOps:
             unstaged_files = [f.strip() for f in result.split("\n") if f.strip()]
 
             # Get untracked files
-            result = self._run_git_command(["ls-files", "--others", "--exclude-standard"])
+            result = self._run_git_command(
+                ["ls-files", "--others", "--exclude-standard"]
+            )
             untracked_files = [f.strip() for f in result.split("\n") if f.strip()]
 
             has_uncommitted = bool(staged_files or unstaged_files or untracked_files)
@@ -199,7 +206,9 @@ class GitOps:
             )
 
         except subprocess.CalledProcessError as e:
-            raise GitBranchError(f"Failed to switch to branch {branch_name}: {e.stderr}")
+            raise GitBranchError(
+                f"Failed to switch to branch {branch_name}: {e.stderr}"
+            )
 
     def stage_files(self, file_paths: List[str]) -> None:
         """Stage files for commit.
@@ -294,7 +303,9 @@ class GitOps:
             timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
 
             # Get files changed
-            files_output = self._run_git_command(["diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash])
+            files_output = self._run_git_command(
+                ["diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash]
+            )
             files_changed = [f.strip() for f in files_output.split("\n") if f.strip()]
 
             return CommitInfo(
@@ -308,7 +319,9 @@ class GitOps:
         except subprocess.CalledProcessError as e:
             raise GitOpsError(f"Failed to get last commit: {e.stderr}")
 
-    def push_branch(self, branch_name: Optional[str] = None, set_upstream: bool = True) -> None:
+    def push_branch(
+        self, branch_name: Optional[str] = None, set_upstream: bool = True
+    ) -> None:
         """Push branch to remote.
 
         Args:
@@ -484,7 +497,11 @@ class GitOps:
             Formatted commit message
         """
         # Extract main action from step description
-        action = step_description.split('.')[0] if '.' in step_description else step_description
+        action = (
+            step_description.split(".")[0]
+            if "." in step_description
+            else step_description
+        )
 
         # Determine scope from files
         scope = self._determine_scope(files_changed)

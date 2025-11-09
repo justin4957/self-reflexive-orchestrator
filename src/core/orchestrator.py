@@ -82,7 +82,9 @@ class Orchestrator:
 
         try:
             if self.config.orchestrator.mode == "manual":
-                self.logger.info("Running in manual mode. Use CLI to trigger operations.")
+                self.logger.info(
+                    "Running in manual mode. Use CLI to trigger operations."
+                )
                 # Manual mode - wait for external triggers
                 while self.running:
                     time.sleep(1)
@@ -94,7 +96,9 @@ class Orchestrator:
         except KeyboardInterrupt:
             self.logger.info("Received shutdown signal")
         except Exception as e:
-            self.logger.error("Orchestrator encountered an error", error=str(e), exc_info=True)
+            self.logger.error(
+                "Orchestrator encountered an error", error=str(e), exc_info=True
+            )
             raise
         finally:
             self.stop()
@@ -134,7 +138,9 @@ class Orchestrator:
                     self._check_roadmap_cycle()
 
                 # Return to idle
-                self.state_manager.transition_to(OrchestratorState.IDLE, "Monitoring cycle complete")
+                self.state_manager.transition_to(
+                    OrchestratorState.IDLE, "Monitoring cycle complete"
+                )
 
                 # Sleep until next poll
                 time.sleep(self.config.orchestrator.poll_interval)
@@ -294,7 +300,9 @@ class Orchestrator:
                     self.logger.info(
                         f"Processing work item {work_item.item_id} through Phase 2 workflow",
                         work_item_id=work_item.item_id,
-                        issue_number=work_item.metadata.get("issue_number", work_item.item_id),
+                        issue_number=work_item.metadata.get(
+                            "issue_number", work_item.item_id
+                        ),
                     )
 
                     result = self.issue_processor.process_work_item(work_item)
@@ -402,7 +410,7 @@ class Orchestrator:
         }
 
         # Add Phase 2 statistics if components are initialized
-        if hasattr(self, 'issue_processor'):
+        if hasattr(self, "issue_processor"):
             status["phase2_stats"] = {
                 "issue_monitor": self.issue_monitor.get_statistics(),
                 "issue_processor": self.issue_processor.get_statistics(),

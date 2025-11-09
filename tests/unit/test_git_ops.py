@@ -26,19 +26,19 @@ class TestGitOps(unittest.TestCase):
         self.repo_path = "/fake/repo"
 
         # Mock Path.exists to simulate git repository
-        with patch('src.integrations.git_ops.Path') as mock_path:
+        with patch("src.integrations.git_ops.Path") as mock_path:
             mock_path.return_value.resolve.return_value = Path(self.repo_path)
             mock_path.return_value.__truediv__.return_value.exists.return_value = True
 
             # Create GitOps with mocked repository check
-            with patch.object(Path, 'exists', return_value=True):
+            with patch.object(Path, "exists", return_value=True):
                 self.git_ops = GitOps(
                     repo_path=self.repo_path,
                     logger=self.logger,
                     base_branch="main",
                 )
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_get_status(self, mock_run):
         """Test getting git status."""
         # Mock git command outputs
@@ -57,7 +57,7 @@ class TestGitOps(unittest.TestCase):
         self.assertEqual(status.unstaged_files, ["file3.py"])
         self.assertEqual(status.untracked_files, ["file4.py"])
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_get_status_clean_repo(self, mock_run):
         """Test git status for clean repository."""
         mock_run.side_effect = [
@@ -73,7 +73,7 @@ class TestGitOps(unittest.TestCase):
         self.assertFalse(status.has_uncommitted_changes)
         self.assertEqual(status.staged_files, [])
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_create_branch(self, mock_run):
         """Test creating a new branch."""
         mock_run.return_value = MagicMock(stdout="")
@@ -91,19 +91,19 @@ class TestGitOps(unittest.TestCase):
         self.assertIn("checkout", calls[2][0][0])
         self.assertIn("-b", calls[2][0][0])
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_create_branch_failure(self, mock_run):
         """Test branch creation failure."""
         mock_run.side_effect = subprocess.CalledProcessError(
             returncode=1,
             cmd=["git", "checkout", "-b", "feature"],
-            stderr="Branch already exists"
+            stderr="Branch already exists",
         )
 
         with self.assertRaises(GitBranchError):
             self.git_ops.create_branch("feature-123")
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_switch_branch(self, mock_run):
         """Test switching branches."""
         mock_run.return_value = MagicMock(stdout="")
@@ -114,7 +114,7 @@ class TestGitOps(unittest.TestCase):
         self.assertIn("checkout", mock_run.call_args[0][0])
         self.assertIn("develop", mock_run.call_args[0][0])
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_stage_files(self, mock_run):
         """Test staging files."""
         mock_run.return_value = MagicMock(stdout="")
@@ -128,14 +128,14 @@ class TestGitOps(unittest.TestCase):
         for file in files:
             self.assertIn(file, cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_stage_files_empty_list(self, mock_run):
         """Test staging empty file list."""
         self.git_ops.stage_files([])
 
         mock_run.assert_not_called()
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_commit(self, mock_run):
         """Test creating a commit."""
         # Mock git commands for commit and get_last_commit
@@ -160,7 +160,7 @@ class TestGitOps(unittest.TestCase):
         self.assertEqual(commit_info.commit_hash, "abc123")
         self.assertIn("Test commit", commit_info.message)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_commit_with_signature(self, mock_run):
         """Test commit includes orchestrator signature."""
         # Capture the actual call to verify signature
@@ -169,7 +169,7 @@ class TestGitOps(unittest.TestCase):
         def capture_call(*args, **kwargs):
             result = MagicMock(stdout="")
             # Capture commit command
-            if args and args[0] and 'commit' in args[0]:
+            if args and args[0] and "commit" in args[0]:
                 actual_calls.append(args[0])
             return result
 
@@ -189,7 +189,11 @@ class TestGitOps(unittest.TestCase):
 
         # Check that commit was called with signature
         # Find the commit call
-        commit_calls = [call for call in mock_run.call_args_list if call[0] and 'commit' in str(call[0][0])]
+        commit_calls = [
+            call
+            for call in mock_run.call_args_list
+            if call[0] and "commit" in str(call[0][0])
+        ]
         self.assertGreater(len(commit_calls), 0)
 
         # Check the command arguments (cmd, cwd=..., capture_output=True, text=True, check=True)
@@ -198,19 +202,17 @@ class TestGitOps(unittest.TestCase):
         commit_message = commit_cmd[3] if len(commit_cmd) > 3 else ""
         self.assertIn("Self-Reflexive Orchestrator", commit_message)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_commit_failure(self, mock_run):
         """Test commit failure handling."""
         mock_run.side_effect = subprocess.CalledProcessError(
-            returncode=1,
-            cmd=["git", "commit"],
-            stderr="Nothing to commit"
+            returncode=1, cmd=["git", "commit"], stderr="Nothing to commit"
         )
 
         with self.assertRaises(GitCommitError):
             self.git_ops.commit(message="Test")
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_get_last_commit(self, mock_run):
         """Test getting last commit info."""
         mock_run.side_effect = [
@@ -228,7 +230,7 @@ class TestGitOps(unittest.TestCase):
         self.assertEqual(commit_info.author, "Jane Doe <jane@example.com>")
         self.assertEqual(len(commit_info.files_changed), 2)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_push_branch(self, mock_run):
         """Test pushing branch to remote."""
         mock_run.return_value = MagicMock(stdout="")
@@ -241,7 +243,7 @@ class TestGitOps(unittest.TestCase):
         self.assertIn("-u", cmd)
         self.assertIn("origin", cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_push_branch_without_upstream(self, mock_run):
         """Test pushing branch without setting upstream."""
         mock_run.return_value = MagicMock(stdout="")
@@ -251,7 +253,7 @@ class TestGitOps(unittest.TestCase):
         cmd = mock_run.call_args[0][0]
         self.assertNotIn("-u", cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_has_uncommitted_changes_true(self, mock_run):
         """Test detecting uncommitted changes."""
         mock_run.side_effect = [
@@ -265,7 +267,7 @@ class TestGitOps(unittest.TestCase):
 
         self.assertTrue(has_changes)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_has_uncommitted_changes_false(self, mock_run):
         """Test clean repository."""
         mock_run.side_effect = [
@@ -279,7 +281,7 @@ class TestGitOps(unittest.TestCase):
 
         self.assertFalse(has_changes)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_get_current_branch(self, mock_run):
         """Test getting current branch name."""
         mock_run.side_effect = [
@@ -293,7 +295,7 @@ class TestGitOps(unittest.TestCase):
 
         self.assertEqual(branch, "feature-xyz")
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_branch_exists_true(self, mock_run):
         """Test checking if branch exists."""
         mock_run.return_value = MagicMock(stdout="")
@@ -302,20 +304,18 @@ class TestGitOps(unittest.TestCase):
 
         self.assertTrue(exists)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_branch_exists_false(self, mock_run):
         """Test checking non-existent branch."""
         mock_run.side_effect = subprocess.CalledProcessError(
-            returncode=1,
-            cmd=["git", "rev-parse"],
-            stderr="Branch not found"
+            returncode=1, cmd=["git", "rev-parse"], stderr="Branch not found"
         )
 
         exists = self.git_ops.branch_exists("nonexistent")
 
         self.assertFalse(exists)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_delete_branch(self, mock_run):
         """Test deleting a branch."""
         mock_run.return_value = MagicMock(stdout="")
@@ -327,7 +327,7 @@ class TestGitOps(unittest.TestCase):
         self.assertIn("-d", cmd)
         self.assertIn("feature-old", cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_delete_branch_force(self, mock_run):
         """Test force deleting a branch."""
         mock_run.return_value = MagicMock(stdout="")
@@ -337,7 +337,7 @@ class TestGitOps(unittest.TestCase):
         cmd = mock_run.call_args[0][0]
         self.assertIn("-D", cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_get_diff(self, mock_run):
         """Test getting git diff."""
         mock_run.return_value = MagicMock(stdout="diff content here")
@@ -348,7 +348,7 @@ class TestGitOps(unittest.TestCase):
         cmd = mock_run.call_args[0][0]
         self.assertIn("diff", cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_get_diff_staged(self, mock_run):
         """Test getting staged diff."""
         mock_run.return_value = MagicMock(stdout="staged diff")
@@ -358,7 +358,7 @@ class TestGitOps(unittest.TestCase):
         cmd = mock_run.call_args[0][0]
         self.assertIn("--cached", cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_get_diff_specific_file(self, mock_run):
         """Test getting diff for specific file."""
         mock_run.return_value = MagicMock(stdout="file diff")
@@ -368,7 +368,7 @@ class TestGitOps(unittest.TestCase):
         cmd = mock_run.call_args[0][0]
         self.assertIn("src/main.py", cmd)
 
-    @patch('src.integrations.git_ops.subprocess.run')
+    @patch("src.integrations.git_ops.subprocess.run")
     def test_reset_hard(self, mock_run):
         """Test hard reset."""
         mock_run.return_value = MagicMock(stdout="")
@@ -458,5 +458,5 @@ class TestGitOps(unittest.TestCase):
         self.assertEqual(len(commit_dict["files_changed"]), 2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

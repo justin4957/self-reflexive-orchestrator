@@ -36,7 +36,11 @@ def cli(ctx, config: Optional[str]):
 
 
 @cli.command()
-@click.option("--mode", type=click.Choice(["manual", "supervised", "autonomous"]), help="Override orchestrator mode")
+@click.option(
+    "--mode",
+    type=click.Choice(["manual", "supervised", "autonomous"]),
+    help="Override orchestrator mode",
+)
 @click.pass_context
 def start(ctx, mode: Optional[str]):
     """Start the orchestrator.
@@ -47,7 +51,11 @@ def start(ctx, mode: Optional[str]):
     - autonomous: Fully automated
     """
     try:
-        console.print(Panel.fit("🤖 Starting Self-Reflexive Coding Orchestrator", style="bold blue"))
+        console.print(
+            Panel.fit(
+                "🤖 Starting Self-Reflexive Coding Orchestrator", style="bold blue"
+            )
+        )
 
         # Initialize orchestrator
         orchestrator = Orchestrator(ctx.obj["config_path"])
@@ -58,7 +66,9 @@ def start(ctx, mode: Optional[str]):
             console.print(f"[yellow]Mode overridden to: {mode}[/yellow]")
 
         console.print(f"[green]✓[/green] Configuration loaded")
-        console.print(f"[green]✓[/green] Repository: {orchestrator.config.github.repository}")
+        console.print(
+            f"[green]✓[/green] Repository: {orchestrator.config.github.repository}"
+        )
         console.print(f"[green]✓[/green] Mode: {orchestrator.config.orchestrator.mode}")
         console.print()
 
@@ -67,7 +77,9 @@ def start(ctx, mode: Optional[str]):
 
     except FileNotFoundError as e:
         console.print(f"[red]✗[/red] {e}", style="bold red")
-        console.print("\n[yellow]Tip:[/yellow] Copy config/orchestrator-config.yaml.example to config/orchestrator-config.yaml")
+        console.print(
+            "\n[yellow]Tip:[/yellow] Copy config/orchestrator-config.yaml.example to config/orchestrator-config.yaml"
+        )
         sys.exit(1)
     except ValueError as e:
         console.print(f"[red]✗[/red] Configuration error:", style="bold red")
@@ -128,11 +140,23 @@ def status(ctx):
             monitor_table.add_column("Metric")
             monitor_table.add_column("Value", justify="right")
 
-            monitor_table.add_row("Issues Found", str(monitor_stats["total_issues_found"]))
-            monitor_table.add_row("Issues Claimed", str(monitor_stats["issues_claimed"]))
-            monitor_table.add_row("Skipped (Concurrent Limit)", str(monitor_stats["issues_skipped_concurrent_limit"]))
-            monitor_table.add_row("Skipped (Already Claimed)", str(monitor_stats["issues_skipped_already_claimed"]))
-            monitor_table.add_row("Rate Limit Hits", str(monitor_stats["rate_limit_hits"]))
+            monitor_table.add_row(
+                "Issues Found", str(monitor_stats["total_issues_found"])
+            )
+            monitor_table.add_row(
+                "Issues Claimed", str(monitor_stats["issues_claimed"])
+            )
+            monitor_table.add_row(
+                "Skipped (Concurrent Limit)",
+                str(monitor_stats["issues_skipped_concurrent_limit"]),
+            )
+            monitor_table.add_row(
+                "Skipped (Already Claimed)",
+                str(monitor_stats["issues_skipped_already_claimed"]),
+            )
+            monitor_table.add_row(
+                "Rate Limit Hits", str(monitor_stats["rate_limit_hits"])
+            )
 
             console.print(monitor_table)
             console.print()
@@ -143,10 +167,14 @@ def status(ctx):
             processor_table.add_column("Metric")
             processor_table.add_column("Value", justify="right")
 
-            processor_table.add_row("Total Processed", str(processor_stats["total_processed"]))
+            processor_table.add_row(
+                "Total Processed", str(processor_stats["total_processed"])
+            )
             processor_table.add_row("Successful", str(processor_stats["successful"]))
             processor_table.add_row("Failed", str(processor_stats["failed"]))
-            processor_table.add_row("Success Rate", f"{processor_stats['success_rate']:.1f}%")
+            processor_table.add_row(
+                "Success Rate", f"{processor_stats['success_rate']:.1f}%"
+            )
 
             console.print(processor_table)
 
@@ -170,7 +198,9 @@ def process_issue(ctx, issue_number: int):
         success = orchestrator.process_issue_manually(issue_number)
 
         if success:
-            console.print(f"[green]✓[/green] Issue #{issue_number} queued for processing")
+            console.print(
+                f"[green]✓[/green] Issue #{issue_number} queued for processing"
+            )
         else:
             console.print(f"[red]✗[/red] Failed to queue issue #{issue_number}")
             sys.exit(1)
@@ -181,7 +211,12 @@ def process_issue(ctx, issue_number: int):
 
 
 @cli.command()
-@click.option("--state", type=click.Choice(["open", "closed", "all"]), default="open", help="Issue state filter")
+@click.option(
+    "--state",
+    type=click.Choice(["open", "closed", "all"]),
+    default="open",
+    help="Issue state filter",
+)
 @click.option("--labels", help="Comma-separated list of labels to filter by")
 @click.pass_context
 def list_issues(ctx, state: str, labels: Optional[str]):
@@ -213,7 +248,9 @@ def list_issues(ctx, state: str, labels: Optional[str]):
             )
 
         console.print(table)
-        console.print(f"\n[dim]Showing {min(len(issues), 20)} of {len(issues)} issues[/dim]")
+        console.print(
+            f"\n[dim]Showing {min(len(issues), 20)} of {len(issues)} issues[/dim]"
+        )
 
     except Exception as e:
         console.print(f"[red]✗[/red] Error: {e}", style="bold red")
@@ -242,7 +279,9 @@ def validate_config(ctx):
         table.add_row("Mode", config.orchestrator.mode)
         table.add_row("Repository", config.github.repository)
         table.add_row("Poll Interval", f"{config.orchestrator.poll_interval}s")
-        table.add_row("Max Concurrent Issues", str(config.issue_processing.max_concurrent))
+        table.add_row(
+            "Max Concurrent Issues", str(config.issue_processing.max_concurrent)
+        )
         table.add_row("Auto Merge", "Yes" if config.pr_management.auto_merge else "No")
         table.add_row("Roadmap Enabled", "Yes" if config.roadmap.enabled else "No")
 
@@ -280,12 +319,14 @@ def export_state(ctx):
 @click.pass_context
 def version(ctx):
     """Show version information."""
-    console.print(Panel.fit(
-        "[bold]Self-Reflexive Coding Orchestrator[/bold]\n"
-        "Version: 0.1.0 (Phase 1 - Foundation)\n"
-        "Autonomous agent for GitHub workflow automation",
-        style="blue"
-    ))
+    console.print(
+        Panel.fit(
+            "[bold]Self-Reflexive Coding Orchestrator[/bold]\n"
+            "Version: 0.1.0 (Phase 1 - Foundation)\n"
+            "Autonomous agent for GitHub workflow automation",
+            style="blue",
+        )
+    )
 
 
 def main():

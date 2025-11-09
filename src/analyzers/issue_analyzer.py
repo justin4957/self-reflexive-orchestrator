@@ -6,12 +6,16 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 
 from ..core.logger import AuditLogger, EventType
-from ..integrations.multi_agent_coder_client import MultiAgentCoderClient, MultiAgentResponse
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+)
 from github.Issue import Issue
 
 
 class IssueType(Enum):
     """Types of issues."""
+
     BUG = "bug"
     FEATURE = "feature"
     REFACTOR = "refactor"
@@ -24,6 +28,7 @@ class IssueType(Enum):
 @dataclass
 class IssueAnalysis:
     """Analysis result for a GitHub issue."""
+
     issue_number: int
     issue_type: IssueType
     complexity_score: int  # 0-10
@@ -46,7 +51,7 @@ class IssueAnalysis:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         result = asdict(self)
-        result['issue_type'] = self.issue_type.value
+        result["issue_type"] = self.issue_type.value
         return result
 
 
@@ -120,7 +125,9 @@ class IssueAnalyzer:
                     issue_number=issue.number,
                     error=response.error,
                 )
-                return self._create_failed_analysis(issue.number, response.error or "Unknown error")
+                return self._create_failed_analysis(
+                    issue.number, response.error or "Unknown error"
+                )
 
             # Parse and synthesize responses from multiple providers
             analysis = self._synthesize_analyses(issue.number, response)
@@ -223,7 +230,9 @@ class IssueAnalyzer:
         # Synthesize results using consensus/averaging
         final_issue_type = self._consensus_issue_type(issue_types)
         final_complexity = self._average_complexity(complexity_scores)
-        final_actionable, final_reason = self._consensus_actionability(actionability_votes)
+        final_actionable, final_reason = self._consensus_actionability(
+            actionability_votes
+        )
         final_requirements = self._merge_requirements(requirements_sets)
         final_files = self._merge_files(affected_files_sets)
         final_risks = self._merge_risks(risks_sets)
@@ -260,12 +269,12 @@ class IssueAnalyzer:
 
         # Look for explicit issue type mentions
         type_patterns = {
-            IssueType.BUG: ['bug', 'defect', 'error', 'issue'],
-            IssueType.FEATURE: ['feature', 'enhancement', 'new functionality'],
-            IssueType.REFACTOR: ['refactor', 'refactoring', 'restructure'],
-            IssueType.DOCUMENTATION: ['documentation', 'docs', 'readme'],
-            IssueType.TEST: ['test', 'testing', 'test coverage'],
-            IssueType.CHORE: ['chore', 'maintenance', 'cleanup'],
+            IssueType.BUG: ["bug", "defect", "error", "issue"],
+            IssueType.FEATURE: ["feature", "enhancement", "new functionality"],
+            IssueType.REFACTOR: ["refactor", "refactoring", "restructure"],
+            IssueType.DOCUMENTATION: ["documentation", "docs", "readme"],
+            IssueType.TEST: ["test", "testing", "test coverage"],
+            IssueType.CHORE: ["chore", "maintenance", "cleanup"],
         }
 
         # Find most mentioned type
@@ -284,9 +293,9 @@ class IssueAnalyzer:
         """Extract complexity score from analysis text."""
         # Look for patterns like "complexity: 7", "score: 8/10", "7 out of 10"
         patterns = [
-            r'complexity[:\s]+(\d+)',
-            r'score[:\s]+(\d+)',
-            r'(\d+)\s*(?:/\s*10|out of 10)',
+            r"complexity[:\s]+(\d+)",
+            r"score[:\s]+(\d+)",
+            r"(\d+)\s*(?:/\s*10|out of 10)",
         ]
 
         for pattern in patterns:
@@ -305,18 +314,30 @@ class IssueAnalyzer:
         text_lower = text.lower()
 
         # Look for explicit yes/no
-        if re.search(r'actionab(?:le|ility)[:\s]+yes', text_lower):
-            reason_match = re.search(r'actionab(?:le|ility)[:\s]+yes[^.]*\.([^.]+)', text_lower)
-            reason = reason_match.group(1).strip() if reason_match else "Analysis indicates issue is actionable"
+        if re.search(r"actionab(?:le|ility)[:\s]+yes", text_lower):
+            reason_match = re.search(
+                r"actionab(?:le|ility)[:\s]+yes[^.]*\.([^.]+)", text_lower
+            )
+            reason = (
+                reason_match.group(1).strip()
+                if reason_match
+                else "Analysis indicates issue is actionable"
+            )
             return True, reason
 
-        if re.search(r'actionab(?:le|ility)[:\s]+no', text_lower):
-            reason_match = re.search(r'actionab(?:le|ility)[:\s]+no[^.]*\.([^.]+)', text_lower)
-            reason = reason_match.group(1).strip() if reason_match else "Analysis indicates issue is not actionable"
+        if re.search(r"actionab(?:le|ility)[:\s]+no", text_lower):
+            reason_match = re.search(
+                r"actionab(?:le|ility)[:\s]+no[^.]*\.([^.]+)", text_lower
+            )
+            reason = (
+                reason_match.group(1).strip()
+                if reason_match
+                else "Analysis indicates issue is not actionable"
+            )
             return False, reason
 
         # Heuristic: if we can extract requirements, likely actionable
-        if 'requirement' in text_lower and 'unclear' not in text_lower:
+        if "requirement" in text_lower and "unclear" not in text_lower:
             return True, "Clear requirements found in analysis"
 
         return None, ""
@@ -327,15 +348,17 @@ class IssueAnalyzer:
 
         # Look for numbered or bulleted lists of requirements
         requirement_section = re.search(
-            r'(?:key requirements?|requirements?)[:\s]+(.*?)(?:\n\n|\*\*|$)',
+            r"(?:key requirements?|requirements?)[:\s]+(.*?)(?:\n\n|\*\*|$)",
             text.lower(),
-            re.DOTALL
+            re.DOTALL,
         )
 
         if requirement_section:
             section_text = requirement_section.group(1)
             # Extract items from numbered or bulleted lists
-            items = re.findall(r'(?:^\s*(?:\d+\.|-|\*)\s+(.+)$)', section_text, re.MULTILINE)
+            items = re.findall(
+                r"(?:^\s*(?:\d+\.|-|\*)\s+(.+)$)", section_text, re.MULTILINE
+            )
             requirements.extend([item.strip() for item in items if item.strip()])
 
         return requirements[:5]  # Limit to 5 key requirements
@@ -346,9 +369,9 @@ class IssueAnalyzer:
 
         # Look for file paths or file mentions
         file_patterns = [
-            r'(\w+/[\w/]+\.py)',  # Python file paths
-            r'(\w+\.py)',  # Python files
-            r'(src/[\w/]+)',  # Source paths
+            r"(\w+/[\w/]+\.py)",  # Python file paths
+            r"(\w+\.py)",  # Python files
+            r"(src/[\w/]+)",  # Source paths
         ]
 
         for pattern in file_patterns:
@@ -363,14 +386,14 @@ class IssueAnalyzer:
 
         # Look for risks section
         risk_section = re.search(
-            r'(?:risks?|challenges?)[:\s]+(.*?)(?:\n\n|\*\*|$)',
-            text.lower(),
-            re.DOTALL
+            r"(?:risks?|challenges?)[:\s]+(.*?)(?:\n\n|\*\*|$)", text.lower(), re.DOTALL
         )
 
         if risk_section:
             section_text = risk_section.group(1)
-            items = re.findall(r'(?:^\s*(?:\d+\.|-|\*)\s+(.+)$)', section_text, re.MULTILINE)
+            items = re.findall(
+                r"(?:^\s*(?:\d+\.|-|\*)\s+(.+)$)", section_text, re.MULTILINE
+            )
             risks.extend([item.strip() for item in items if item.strip()])
 
         return risks[:5]  # Limit to 5 key risks
@@ -378,9 +401,9 @@ class IssueAnalyzer:
     def _extract_approach(self, text: str) -> str:
         """Extract recommended approach from analysis text."""
         approach_section = re.search(
-            r'(?:recommended approach|approach)[:\s]+(.*?)(?:\n\n|\*\*|$)',
+            r"(?:recommended approach|approach)[:\s]+(.*?)(?:\n\n|\*\*|$)",
             text.lower(),
-            re.DOTALL
+            re.DOTALL,
         )
 
         if approach_section:
@@ -408,8 +431,7 @@ class IssueAnalyzer:
         return min(round(sum(scores) / len(scores)), self.MAX_COMPLEXITY)
 
     def _consensus_actionability(
-        self,
-        votes: List[tuple[bool, str]]
+        self, votes: List[tuple[bool, str]]
     ) -> tuple[bool, str]:
         """Determine consensus on actionability."""
         if not votes:
@@ -422,10 +444,18 @@ class IssueAnalyzer:
         if yes_votes > no_votes:
             # Use most detailed reason from yes votes
             reasons = [reason for actionable, reason in votes if actionable and reason]
-            return True, reasons[0] if reasons else "Majority of providers indicate actionable"
+            return True, (
+                reasons[0] if reasons else "Majority of providers indicate actionable"
+            )
         else:
-            reasons = [reason for actionable, reason in votes if not actionable and reason]
-            return False, reasons[0] if reasons else "Majority of providers indicate not actionable"
+            reasons = [
+                reason for actionable, reason in votes if not actionable and reason
+            ]
+            return False, (
+                reasons[0]
+                if reasons
+                else "Majority of providers indicate not actionable"
+            )
 
     def _merge_requirements(self, requirements_sets: List[List[str]]) -> List[str]:
         """Merge requirements from multiple providers."""

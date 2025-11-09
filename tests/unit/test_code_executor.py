@@ -18,7 +18,10 @@ from src.analyzers.implementation_planner import (
     PlanConfidence,
 )
 from src.integrations.git_ops import GitOps, CommitInfo
-from src.integrations.multi_agent_coder_client import MultiAgentCoderClient, MultiAgentResponse
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+)
 from src.core.logger import AuditLogger
 from src.core.state import WorkItem, OrchestratorState
 from datetime import datetime, timezone
@@ -62,7 +65,9 @@ class TestCodeExecutor(unittest.TestCase):
 
         self.assertEqual(change_dict["file_path"], "src/test.py")
         self.assertEqual(change_dict["change_type"], "create")
-        self.assertEqual(change_dict["content_length"], 14)  # "print('hello')" is 14 chars
+        self.assertEqual(
+            change_dict["content_length"], 14
+        )  # "print('hello')" is 14 chars
 
     def test_execution_status_enum(self):
         """Test ExecutionStatus enum values."""
@@ -94,9 +99,9 @@ class TestCodeExecutor(unittest.TestCase):
         )
         self.assertEqual(message, "Test message")
 
-    @patch('builtins.open', create=True)
-    @patch('pathlib.Path.exists')
-    @patch('pathlib.Path.mkdir')
+    @patch("builtins.open", create=True)
+    @patch("pathlib.Path.exists")
+    @patch("pathlib.Path.mkdir")
     def test_apply_changes_create_file(self, mock_mkdir, mock_exists, mock_open):
         """Test applying code changes for new file."""
         mock_exists.return_value = False
@@ -117,9 +122,9 @@ class TestCodeExecutor(unittest.TestCase):
         handle = mock_open.return_value.__enter__.return_value
         handle.write.assert_called_once_with("# New file\npass\n")
 
-    @patch('builtins.open', create=True)
-    @patch('pathlib.Path.mkdir')
-    @patch('pathlib.Path.exists')
+    @patch("builtins.open", create=True)
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.exists")
     def test_apply_changes_modify_file(self, mock_exists, mock_mkdir, mock_open):
         """Test applying code changes for existing file."""
         mock_exists.return_value = True
@@ -146,9 +151,7 @@ class TestCodeExecutor(unittest.TestCase):
             estimated_complexity=3,
         )
 
-        changes = [
-            CodeChange("src/validator.py", "create", "def validate(): pass")
-        ]
+        changes = [CodeChange("src/validator.py", "create", "def validate(): pass")]
 
         mock_response = MultiAgentResponse(
             providers=["anthropic"],
@@ -283,5 +286,5 @@ class TestCodeExecutor(unittest.TestCase):
         self.assertEqual(result_dict["total_files_changed"], 5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

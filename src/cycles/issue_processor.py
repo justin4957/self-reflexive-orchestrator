@@ -23,6 +23,7 @@ from ..integrations.github_client import GitHubClient
 
 class ProcessingStage(Enum):
     """Stages in the issue processing workflow."""
+
     ANALYZING = "analyzing"
     PLANNING = "planning"
     IMPLEMENTING = "implementing"
@@ -37,6 +38,7 @@ class ProcessingStage(Enum):
 @dataclass
 class ProcessingConfig:
     """Configuration for issue processing workflow."""
+
     # Analysis config
     max_complexity: int = 7
     min_actionability_confidence: float = 0.6
@@ -64,6 +66,7 @@ class ProcessingConfig:
 @dataclass
 class ProcessingResult:
     """Result of processing a work item through the workflow."""
+
     work_item: WorkItem
     success: bool
     final_stage: ProcessingStage
@@ -78,7 +81,7 @@ class ProcessingResult:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         result = asdict(self)
-        result['final_stage'] = self.final_stage.value
+        result["final_stage"] = self.final_stage.value
         return result
 
 
@@ -161,28 +164,44 @@ class IssueProcessor:
 
             if not analysis:
                 return self._create_result(
-                    work_item, False, ProcessingStage.ANALYZING,
-                    stages_completed, start_time, "Analysis failed"
+                    work_item,
+                    False,
+                    ProcessingStage.ANALYZING,
+                    stages_completed,
+                    start_time,
+                    "Analysis failed",
                 )
 
             # Check if issue is actionable
             if not analysis.is_actionable:
-                self._update_work_item_state(work_item, "rejected",
-                    f"Not actionable: {analysis.actionability_reason}")
+                self._update_work_item_state(
+                    work_item,
+                    "rejected",
+                    f"Not actionable: {analysis.actionability_reason}",
+                )
                 return self._create_result(
-                    work_item, False, ProcessingStage.ANALYZING,
-                    stages_completed, start_time,
-                    f"Issue not actionable: {analysis.actionability_reason}"
+                    work_item,
+                    False,
+                    ProcessingStage.ANALYZING,
+                    stages_completed,
+                    start_time,
+                    f"Issue not actionable: {analysis.actionability_reason}",
                 )
 
             # Check complexity
             if analysis.complexity_score > self.config.max_complexity:
-                self._update_work_item_state(work_item, "rejected",
-                    f"Too complex: {analysis.complexity_score}/{self.config.max_complexity}")
+                self._update_work_item_state(
+                    work_item,
+                    "rejected",
+                    f"Too complex: {analysis.complexity_score}/{self.config.max_complexity}",
+                )
                 return self._create_result(
-                    work_item, False, ProcessingStage.ANALYZING,
-                    stages_completed, start_time,
-                    f"Issue too complex: {analysis.complexity_score}"
+                    work_item,
+                    False,
+                    ProcessingStage.ANALYZING,
+                    stages_completed,
+                    start_time,
+                    f"Issue too complex: {analysis.complexity_score}",
                 )
 
             # Stage 2: Generate Implementation Plan
@@ -191,29 +210,48 @@ class IssueProcessor:
 
             if not plan:
                 return self._create_result(
-                    work_item, False, ProcessingStage.PLANNING,
-                    stages_completed, start_time, "Planning failed"
+                    work_item,
+                    False,
+                    ProcessingStage.PLANNING,
+                    stages_completed,
+                    start_time,
+                    "Planning failed",
                 )
 
             # Check plan confidence
             if plan.consensus_confidence < self.config.min_plan_confidence:
-                self._update_work_item_state(work_item, "rejected",
-                    f"Low plan confidence: {plan.consensus_confidence:.2f}")
+                self._update_work_item_state(
+                    work_item,
+                    "rejected",
+                    f"Low plan confidence: {plan.consensus_confidence:.2f}",
+                )
                 return self._create_result(
-                    work_item, False, ProcessingStage.PLANNING,
-                    stages_completed, start_time,
-                    f"Plan confidence too low: {plan.consensus_confidence:.2f}"
+                    work_item,
+                    False,
+                    ProcessingStage.PLANNING,
+                    stages_completed,
+                    start_time,
+                    f"Plan confidence too low: {plan.consensus_confidence:.2f}",
                 )
 
             # Stage 3: Execute Implementation
             execution_result = self._execute_implementation(work_item, plan)
             stages_completed.append(ProcessingStage.IMPLEMENTING.value)
 
-            if not execution_result or execution_result.status != ExecutionStatus.SUCCESS:
-                error_msg = execution_result.error if execution_result else "Execution failed"
+            if (
+                not execution_result
+                or execution_result.status != ExecutionStatus.SUCCESS
+            ):
+                error_msg = (
+                    execution_result.error if execution_result else "Execution failed"
+                )
                 return self._create_result(
-                    work_item, False, ProcessingStage.IMPLEMENTING,
-                    stages_completed, start_time, error_msg
+                    work_item,
+                    False,
+                    ProcessingStage.IMPLEMENTING,
+                    stages_completed,
+                    start_time,
+                    error_msg,
                 )
 
             # Stage 4: Run Tests (with potential auto-fix loop)
@@ -241,9 +279,12 @@ class IssueProcessor:
             else:
                 # Tests failed and couldn't fix
                 return self._create_result(
-                    work_item, False, ProcessingStage.TESTING,
-                    stages_completed, start_time,
-                    "Tests failed and auto-fix unsuccessful"
+                    work_item,
+                    False,
+                    ProcessingStage.TESTING,
+                    stages_completed,
+                    start_time,
+                    "Tests failed and auto-fix unsuccessful",
                 )
 
         except Exception as e:
@@ -255,8 +296,12 @@ class IssueProcessor:
             )
             self._update_work_item_state(work_item, "failed", str(e))
             return self._create_result(
-                work_item, False, ProcessingStage.FAILED,
-                stages_completed, start_time, str(e)
+                work_item,
+                False,
+                ProcessingStage.FAILED,
+                stages_completed,
+                start_time,
+                str(e),
             )
         finally:
             self.total_processed += 1
@@ -274,7 +319,9 @@ class IssueProcessor:
 
         try:
             # Get GitHub issue object
-            issue_number = work_item.metadata.get("issue_number", int(work_item.item_id))
+            issue_number = work_item.metadata.get(
+                "issue_number", int(work_item.item_id)
+            )
             issue = self.github.get_issue(issue_number)
 
             # Run analysis
@@ -308,10 +355,14 @@ class IssueProcessor:
                 error=str(e),
                 exc_info=True,
             )
-            self._update_work_item_state(work_item, "failed", f"Analysis error: {str(e)}")
+            self._update_work_item_state(
+                work_item, "failed", f"Analysis error: {str(e)}"
+            )
             return None
 
-    def _generate_plan(self, work_item: WorkItem, analysis: IssueAnalysis) -> Optional[ImplementationPlan]:
+    def _generate_plan(
+        self, work_item: WorkItem, analysis: IssueAnalysis
+    ) -> Optional[ImplementationPlan]:
         """Generate implementation plan for the issue.
 
         Args:
@@ -325,7 +376,9 @@ class IssueProcessor:
 
         try:
             # Get GitHub issue object
-            issue_number = work_item.metadata.get("issue_number", int(work_item.item_id))
+            issue_number = work_item.metadata.get(
+                "issue_number", int(work_item.item_id)
+            )
             issue = self.github.get_issue(issue_number)
 
             # Generate plan
@@ -358,10 +411,14 @@ class IssueProcessor:
                 error=str(e),
                 exc_info=True,
             )
-            self._update_work_item_state(work_item, "failed", f"Planning error: {str(e)}")
+            self._update_work_item_state(
+                work_item, "failed", f"Planning error: {str(e)}"
+            )
             return None
 
-    def _execute_implementation(self, work_item: WorkItem, plan: ImplementationPlan) -> Optional[ExecutionResult]:
+    def _execute_implementation(
+        self, work_item: WorkItem, plan: ImplementationPlan
+    ) -> Optional[ExecutionResult]:
         """Execute the implementation plan.
 
         Args:
@@ -402,13 +459,13 @@ class IssueProcessor:
                 error=str(e),
                 exc_info=True,
             )
-            self._update_work_item_state(work_item, "failed", f"Execution error: {str(e)}")
+            self._update_work_item_state(
+                work_item, "failed", f"Execution error: {str(e)}"
+            )
             return None
 
     def _test_and_fix_loop(
-        self,
-        work_item: WorkItem,
-        plan: ImplementationPlan
+        self, work_item: WorkItem, plan: ImplementationPlan
     ) -> tuple[Optional[TestResult], Optional[PRCreationResult]]:
         """Run tests and attempt fixes if needed.
 
@@ -450,14 +507,15 @@ class IssueProcessor:
                     attempts=attempt,
                 )
                 self._update_work_item_state(
-                    work_item, "failed",
-                    f"Tests failed after {attempt} fix attempts"
+                    work_item, "failed", f"Tests failed after {attempt} fix attempts"
                 )
                 return test_result, None
 
             if not self.config.enable_auto_fix:
                 self.logger.info("Auto-fix disabled, skipping fix attempt")
-                self._update_work_item_state(work_item, "failed", "Tests failed, auto-fix disabled")
+                self._update_work_item_state(
+                    work_item, "failed", "Tests failed, auto-fix disabled"
+                )
                 return test_result, None
 
             # Attempt to analyze and fix failures
@@ -476,7 +534,9 @@ class IssueProcessor:
             attempt += 1
 
         # Exhausted all attempts
-        self._update_work_item_state(work_item, "failed", "Tests failed after all fix attempts")
+        self._update_work_item_state(
+            work_item, "failed", "Tests failed after all fix attempts"
+        )
         return test_result, None
 
     def _run_tests(self, work_item: WorkItem) -> Optional[TestResult]:
@@ -514,10 +574,7 @@ class IssueProcessor:
             return None
 
     def _analyze_and_fix_failures(
-        self,
-        work_item: WorkItem,
-        test_result: TestResult,
-        plan: ImplementationPlan
+        self, work_item: WorkItem, test_result: TestResult, plan: ImplementationPlan
     ) -> bool:
         """Analyze test failures and attempt fixes.
 
@@ -539,7 +596,10 @@ class IssueProcessor:
             )
 
             # Check if we have confident fix suggestions
-            if not analysis or analysis.auto_fix_recommended < self.config.min_fix_confidence:
+            if (
+                not analysis
+                or analysis.auto_fix_recommended < self.config.min_fix_confidence
+            ):
                 self.logger.warning(
                     "Fix confidence too low",
                     confidence=analysis.auto_fix_recommended if analysis else 0,
@@ -558,12 +618,14 @@ class IssueProcessor:
             )
 
             # Store analysis in metadata
-            work_item.metadata.setdefault("fix_attempts", []).append({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "failures_analyzed": len(analysis.root_causes),
-                "fixes_suggested": len(analysis.fix_suggestions),
-                "confidence": analysis.auto_fix_recommended,
-            })
+            work_item.metadata.setdefault("fix_attempts", []).append(
+                {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "failures_analyzed": len(analysis.root_causes),
+                    "fixes_suggested": len(analysis.fix_suggestions),
+                    "confidence": analysis.auto_fix_recommended,
+                }
+            )
             self.state.update_work_item(work_item)
 
             return True
@@ -581,7 +643,7 @@ class IssueProcessor:
         self,
         work_item: WorkItem,
         plan: ImplementationPlan,
-        test_result: Optional[TestResult]
+        test_result: Optional[TestResult],
     ) -> Optional[PRCreationResult]:
         """Create pull request for the implementation.
 
@@ -621,7 +683,9 @@ class IssueProcessor:
                     metadata={"url": result.pr_url},
                 )
             else:
-                self._update_work_item_state(work_item, "failed", f"PR creation failed: {result.error}")
+                self._update_work_item_state(
+                    work_item, "failed", f"PR creation failed: {result.error}"
+                )
 
             return result
 
@@ -632,10 +696,14 @@ class IssueProcessor:
                 error=str(e),
                 exc_info=True,
             )
-            self._update_work_item_state(work_item, "failed", f"PR creation error: {str(e)}")
+            self._update_work_item_state(
+                work_item, "failed", f"PR creation error: {str(e)}"
+            )
             return None
 
-    def _update_work_item_state(self, work_item: WorkItem, state: str, error: Optional[str] = None):
+    def _update_work_item_state(
+        self, work_item: WorkItem, state: str, error: Optional[str] = None
+    ):
         """Update work item state and error message.
 
         Args:
@@ -656,7 +724,7 @@ class IssueProcessor:
         final_stage: ProcessingStage,
         stages_completed: list,
         start_time: datetime,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> ProcessingResult:
         """Create a ProcessingResult.
 
@@ -698,7 +766,11 @@ class IssueProcessor:
             "total_processed": self.total_processed,
             "successful": self.successful,
             "failed": self.failed,
-            "success_rate": (self.successful / self.total_processed * 100) if self.total_processed > 0 else 0,
+            "success_rate": (
+                (self.successful / self.total_processed * 100)
+                if self.total_processed > 0
+                else 0
+            ),
             "stages_stats": {k.value: v for k, v in self.stages_stats.items()},
         }
 

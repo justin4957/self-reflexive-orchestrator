@@ -23,6 +23,7 @@ from ..core.logger import AuditLogger, EventType
 
 class FailureCategory(Enum):
     """Categories of test failures."""
+
     ASSERTION_ERROR = "assertion_error"
     IMPORT_ERROR = "import_error"
     SYNTAX_ERROR = "syntax_error"
@@ -36,6 +37,7 @@ class FailureCategory(Enum):
 @dataclass
 class RootCause:
     """Identified root cause of a test failure."""
+
     description: str
     category: FailureCategory
     confidence: float  # 0.0 to 1.0
@@ -56,6 +58,7 @@ class RootCause:
 @dataclass
 class FixSuggestion:
     """Suggested fix for a test failure."""
+
     description: str
     file_path: str
     proposed_changes: str
@@ -80,6 +83,7 @@ class FixSuggestion:
 @dataclass
 class FailureAnalysis:
     """Complete analysis of a test failure."""
+
     test_failure: TestFailure
     root_causes: List[RootCause]
     fix_suggestions: List[FixSuggestion]
@@ -271,7 +275,9 @@ class TestFailureAnalyzer:
         """
         # Build context-rich prompt
         changed_files_str = "\n".join([f"- {f}" for f in (changed_files or [])])
-        context_str = f"\n\n**Codebase Context:**\n{codebase_context}" if codebase_context else ""
+        context_str = (
+            f"\n\n**Codebase Context:**\n{codebase_context}" if codebase_context else ""
+        )
 
         prompt = f"""Analyze this test failure and provide:
 
@@ -321,19 +327,19 @@ Provide a structured analysis focusing on actionable insights.
         for provider, response in multi_agent_response.responses.items():
             # Parse root cause from response
             root_cause_match = re.search(
-                r'\*\*Root Cause:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)',
+                r"\*\*Root Cause:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)",
                 response,
                 re.DOTALL | re.IGNORECASE,
             )
 
             category_match = re.search(
-                r'\*\*Category:\*\*\s*(\w+)',
+                r"\*\*Category:\*\*\s*(\w+)",
                 response,
                 re.IGNORECASE,
             )
 
             confidence_match = re.search(
-                r'\*\*Confidence:\*\*\s*([\d.]+)',
+                r"\*\*Confidence:\*\*\s*([\d.]+)",
                 response,
                 re.IGNORECASE,
             )
@@ -363,13 +369,15 @@ Provide a structured analysis focusing on actionable insights.
                     except ValueError:
                         pass
 
-                root_causes.append(RootCause(
-                    description=description,
-                    category=category,
-                    confidence=confidence,
-                    affected_files=[failure.test_file],
-                    related_failures=[failure.test_name],
-                ))
+                root_causes.append(
+                    RootCause(
+                        description=description,
+                        category=category,
+                        confidence=confidence,
+                        affected_files=[failure.test_file],
+                        related_failures=[failure.test_name],
+                    )
+                )
 
         return root_causes
 
@@ -394,15 +402,19 @@ Provide a structured analysis focusing on actionable insights.
             return []
 
         # Build synthesis prompt from parallel analyses
-        analyses_summary = "\n\n".join([
-            f"**{provider.upper()} Analysis:**\n{response}"
-            for provider, response in parallel_analysis.responses.items()
-        ])
+        analyses_summary = "\n\n".join(
+            [
+                f"**{provider.upper()} Analysis:**\n{response}"
+                for provider, response in parallel_analysis.responses.items()
+            ]
+        )
 
-        root_causes_summary = "\n".join([
-            f"- {rc.description} (confidence: {rc.confidence:.2f})"
-            for rc in root_causes
-        ])
+        root_causes_summary = "\n".join(
+            [
+                f"- {rc.description} (confidence: {rc.confidence:.2f})"
+                for rc in root_causes
+            ]
+        )
 
         prompt = f"""Synthesize the best fix approach from multiple AI analyses.
 
@@ -447,31 +459,31 @@ Be specific and actionable.
 
         for provider, response in synthesis_response.responses.items():
             fix_match = re.search(
-                r'\*\*Recommended Fix:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)',
+                r"\*\*Recommended Fix:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)",
                 response,
                 re.DOTALL | re.IGNORECASE,
             )
 
             file_match = re.search(
-                r'\*\*File to Modify:\*\*\s*(.*?)(?=\n|$)',
+                r"\*\*File to Modify:\*\*\s*(.*?)(?=\n|$)",
                 response,
                 re.IGNORECASE,
             )
 
             changes_match = re.search(
-                r'\*\*Proposed Changes:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)',
+                r"\*\*Proposed Changes:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)",
                 response,
                 re.DOTALL | re.IGNORECASE,
             )
 
             prob_match = re.search(
-                r'\*\*Success Probability:\*\*\s*([\d.]+)',
+                r"\*\*Success Probability:\*\*\s*([\d.]+)",
                 response,
                 re.IGNORECASE,
             )
 
             rationale_match = re.search(
-                r'\*\*Rationale:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)',
+                r"\*\*Rationale:\*\*\s*(.*?)(?=\n\*\*|\n\n|$)",
                 response,
                 re.DOTALL | re.IGNORECASE,
             )
@@ -485,14 +497,18 @@ Be specific and actionable.
                     except ValueError:
                         pass
 
-                fix_suggestions.append(FixSuggestion(
-                    description=fix_match.group(1).strip(),
-                    file_path=file_match.group(1).strip(),
-                    proposed_changes=changes_match.group(1).strip(),
-                    success_probability=success_prob,
-                    rationale=rationale_match.group(1).strip() if rationale_match else "",
-                    provider_consensus=synthesis_response.responses,
-                ))
+                fix_suggestions.append(
+                    FixSuggestion(
+                        description=fix_match.group(1).strip(),
+                        file_path=file_match.group(1).strip(),
+                        proposed_changes=changes_match.group(1).strip(),
+                        success_probability=success_prob,
+                        rationale=(
+                            rationale_match.group(1).strip() if rationale_match else ""
+                        ),
+                        provider_consensus=synthesis_response.responses,
+                    )
+                )
 
         return fix_suggestions
 
@@ -549,16 +565,16 @@ Be specific and actionable.
         avg_rc_confidence = sum(rc.confidence for rc in root_causes) / len(root_causes)
 
         # Average fix suggestion probability
-        avg_fix_prob = sum(fs.success_probability for fs in fix_suggestions) / len(fix_suggestions)
+        avg_fix_prob = sum(fs.success_probability for fs in fix_suggestions) / len(
+            fix_suggestions
+        )
 
         # Provider consensus boost (more providers = higher confidence)
         provider_factor = min(1.0, provider_count / 3.0)  # Max at 3 providers
 
         # Weighted average
         confidence = (
-            avg_rc_confidence * 0.4 +
-            avg_fix_prob * 0.4 +
-            provider_factor * 0.2
+            avg_rc_confidence * 0.4 + avg_fix_prob * 0.4 + provider_factor * 0.2
         )
 
         return min(1.0, confidence)
