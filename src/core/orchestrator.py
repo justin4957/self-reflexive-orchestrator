@@ -14,6 +14,7 @@ from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
 from ..analyzers.issue_analyzer import IssueAnalyzer
 from ..analyzers.implementation_planner import ImplementationPlanner
 from ..analyzers.test_failure_analyzer import TestFailureAnalyzer
+from ..analyzers.ci_failure_analyzer import CIFailureAnalyzer
 from ..cycles.code_executor import CodeExecutor
 from ..cycles.pr_cycle import PRCreator
 from ..cycles.issue_cycle import IssueMonitor
@@ -197,6 +198,11 @@ class Orchestrator:
 
         self.test_failure_analyzer = TestFailureAnalyzer(
             multi_agent_coder=self.multi_agent_coder,
+            logger=self.logger,
+        )
+
+        self.ci_failure_analyzer = CIFailureAnalyzer(
+            multi_agent_client=self.multi_agent_coder,
             logger=self.logger,
         )
 
