@@ -33,6 +33,22 @@ class IssueProcessingConfig:
     require_acceptance_criteria: bool = True
     max_concurrent: int = 2
 
+    # Phase 2 workflow configuration
+    enable_auto_analysis: bool = True
+    min_actionability_confidence: float = 0.6
+    enable_auto_implementation: bool = True
+    min_plan_confidence: float = 0.6
+    enable_auto_fix: bool = True
+    max_auto_fix_attempts: int = 2
+    min_fix_confidence: float = 0.6
+    require_tests_passing: bool = True
+
+    # Timeouts (seconds)
+    analysis_timeout: int = 300
+    planning_timeout: int = 600
+    execution_timeout: int = 1200
+    test_timeout: int = 300
+
 
 @dataclass
 class PRManagementConfig:

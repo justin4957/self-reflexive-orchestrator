@@ -116,6 +116,39 @@ def status(ctx):
         work_table.add_row("Failed", str(work_summary["failed"]))
 
         console.print(work_table)
+        console.print()
+
+        # Phase 2 statistics if available
+        if "phase2_stats" in status_info:
+            console.print("[bold]Phase 2 Statistics:[/bold]")
+
+            # Issue Monitor stats
+            monitor_stats = status_info["phase2_stats"]["issue_monitor"]
+            monitor_table = Table(title="Issue Monitor", show_header=True)
+            monitor_table.add_column("Metric")
+            monitor_table.add_column("Value", justify="right")
+
+            monitor_table.add_row("Issues Found", str(monitor_stats["total_issues_found"]))
+            monitor_table.add_row("Issues Claimed", str(monitor_stats["issues_claimed"]))
+            monitor_table.add_row("Skipped (Concurrent Limit)", str(monitor_stats["issues_skipped_concurrent_limit"]))
+            monitor_table.add_row("Skipped (Already Claimed)", str(monitor_stats["issues_skipped_already_claimed"]))
+            monitor_table.add_row("Rate Limit Hits", str(monitor_stats["rate_limit_hits"]))
+
+            console.print(monitor_table)
+            console.print()
+
+            # Issue Processor stats
+            processor_stats = status_info["phase2_stats"]["issue_processor"]
+            processor_table = Table(title="Issue Processor", show_header=True)
+            processor_table.add_column("Metric")
+            processor_table.add_column("Value", justify="right")
+
+            processor_table.add_row("Total Processed", str(processor_stats["total_processed"]))
+            processor_table.add_row("Successful", str(processor_stats["successful"]))
+            processor_table.add_row("Failed", str(processor_stats["failed"]))
+            processor_table.add_row("Success Rate", f"{processor_stats['success_rate']:.1f}%")
+
+            console.print(processor_table)
 
     except Exception as e:
         console.print(f"[red]✗[/red] Error: {e}", style="bold red")
