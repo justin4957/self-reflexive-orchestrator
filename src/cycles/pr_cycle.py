@@ -562,3 +562,406 @@ Closes #{issue_number}
         self.total_prs_created = 0
         self.successful_prs = 0
         self.failed_prs = 0
+
+
+@dataclass
+class CICheckStatus:
+    """Status of a single CI check."""
+    name: str
+    status: str  # queued, in_progress, completed
+    conclusion: Optional[str] = None  # success, failure, neutral, cancelled, skipped, timed_out, action_required
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    details_url: Optional[str] = None
+
+    def is_passing(self) -> bool:
+        """Check if this CI check is passing."""
+        return self.status == "completed" and self.conclusion == "success"
+
+    def is_failing(self) -> bool:
+        """Check if this CI check is failing."""
+        return self.status == "completed" and self.conclusion in ["failure", "timed_out", "action_required"]
+
+    def is_pending(self) -> bool:
+        """Check if this CI check is still pending."""
+        return self.status in ["queued", "in_progress"]
+
+
+@dataclass
+class CIStatus:
+    """Overall CI status for a PR."""
+    overall_status: str  # passed, failed, pending, no_checks
+    checks: List[CICheckStatus] = field(default_factory=list)
+    total_checks: int = 0
+    passing_checks: int = 0
+    failing_checks: int = 0
+    pending_checks: int = 0
+    checked_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def is_all_passing(self) -> bool:
+        """Check if all CI checks are passing."""
+        return self.overall_status == "passed"
+
+    def has_failures(self) -> bool:
+        """Check if any CI checks are failing."""
+        return self.overall_status == "failed"
+
+    def is_pending(self) -> bool:
+        """Check if CI checks are still pending."""
+        return self.overall_status == "pending"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "overall_status": self.overall_status,
+            "total_checks": self.total_checks,
+            "passing_checks": self.passing_checks,
+            "failing_checks": self.failing_checks,
+            "pending_checks": self.pending_checks,
+            "checked_at": self.checked_at.isoformat(),
+            "checks": [
+                {
+                    "name": check.name,
+                    "status": check.status,
+                    "conclusion": check.conclusion,
+                }
+                for check in self.checks
+            ],
+        }
+
+
+@dataclass
+class CIMonitorResult:
+    """Result of CI monitoring."""
+    pr_number: int
+    ci_status: CIStatus
+    success: bool
+    timed_out: bool = False
+    wait_time: float = 0.0
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "pr_number": self.pr_number,
+            "ci_status": self.ci_status.to_dict(),
+            "success": self.success,
+            "timed_out": self.timed_out,
+            "wait_time": self.wait_time,
+            "error": self.error,
+        }
+
+
+class CIMonitor:
+    """Monitors CI/CD checks for pull requests.
+
+    Responsibilities:
+    - Poll GitHub for CI check status
+    - Support both check runs (GitHub Actions) and commit statuses (legacy CI)
+    - Wait for checks to complete with timeout
+    - Report overall CI status
+    - Track CI monitoring statistics
+    """
+
+    def __init__(
+        self,
+        github_client: GitHubClient,
+        logger: AuditLogger,
+        poll_interval: int = 30,
+        default_timeout: int = 1800,
+    ):
+        """Initialize CI monitor.
+
+        Args:
+            github_client: GitHub API client
+            logger: Audit logger
+            poll_interval: Seconds between status checks (default: 30)
+            default_timeout: Default timeout in seconds (default: 1800 = 30 min)
+        """
+        self.github_client = github_client
+        self.logger = logger
+        self.poll_interval = poll_interval
+        self.default_timeout = default_timeout
+
+        # Statistics
+        self.total_prs_monitored = 0
+        self.prs_passed = 0
+        self.prs_failed = 0
+        self.prs_timed_out = 0
+
+    def get_ci_status(self, pr_number: int) -> CIStatus:
+        """Get current CI status for a PR.
+
+        Args:
+            pr_number: PR number to check
+
+        Returns:
+            CIStatus with current check status
+        """
+        try:
+            self.logger.debug("Fetching CI status", pr_number=pr_number)
+
+            # Get CI checks from GitHub client
+            check_data = self.github_client.get_pr_checks(pr_number)
+
+            # Parse checks into CICheckStatus objects
+            checks = []
+            for check in check_data.get("checks", []):
+                checks.append(
+                    CICheckStatus(
+                        name=check.get("name", "Unknown"),
+                        status=check.get("status", "unknown"),
+                        conclusion=check.get("conclusion"),
+                        started_at=self._parse_datetime(check.get("started_at")),
+                        completed_at=self._parse_datetime(check.get("completed_at")),
+                        details_url=check.get("details_url"),
+                    )
+                )
+
+            # Calculate overall status
+            total_checks = len(checks)
+            passing_checks = sum(1 for c in checks if c.is_passing())
+            failing_checks = sum(1 for c in checks if c.is_failing())
+            pending_checks = sum(1 for c in checks if c.is_pending())
+
+            # Determine overall status
+            if total_checks == 0:
+                overall_status = "no_checks"
+            elif failing_checks > 0:
+                overall_status = "failed"
+            elif pending_checks > 0:
+                overall_status = "pending"
+            elif passing_checks == total_checks:
+                overall_status = "passed"
+            else:
+                overall_status = "pending"
+
+            return CIStatus(
+                overall_status=overall_status,
+                checks=checks,
+                total_checks=total_checks,
+                passing_checks=passing_checks,
+                failing_checks=failing_checks,
+                pending_checks=pending_checks,
+            )
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to get CI status",
+                pr_number=pr_number,
+                error=str(e),
+                exc_info=True,
+            )
+            # Return failed status on error
+            return CIStatus(
+                overall_status="failed",
+                checks=[],
+                total_checks=0,
+            )
+
+    def wait_for_ci(
+        self,
+        pr_number: int,
+        timeout: Optional[int] = None,
+    ) -> CIMonitorResult:
+        """Wait for CI checks to complete.
+
+        Args:
+            pr_number: PR number to monitor
+            timeout: Timeout in seconds (default: self.default_timeout)
+
+        Returns:
+            CIMonitorResult with final status
+        """
+        timeout = timeout or self.default_timeout
+        start_time = datetime.now(timezone.utc)
+
+        self.logger.info(
+            "Starting CI monitoring",
+            pr_number=pr_number,
+            timeout=timeout,
+            poll_interval=self.poll_interval,
+        )
+
+        self.total_prs_monitored += 1
+
+        try:
+            # Initial status check
+            ci_status = self.get_ci_status(pr_number)
+
+            # If no checks, consider it passed
+            if ci_status.overall_status == "no_checks":
+                self.logger.warning(
+                    "No CI checks found for PR",
+                    pr_number=pr_number,
+                )
+                self.prs_passed += 1
+                return CIMonitorResult(
+                    pr_number=pr_number,
+                    ci_status=ci_status,
+                    success=True,
+                    wait_time=0.0,
+                )
+
+            # Poll until complete or timeout
+            while True:
+                elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+                # Check for timeout
+                if elapsed >= timeout:
+                    self.logger.warning(
+                        "CI monitoring timed out",
+                        pr_number=pr_number,
+                        elapsed=elapsed,
+                        timeout=timeout,
+                    )
+                    self.prs_timed_out += 1
+
+                    return CIMonitorResult(
+                        pr_number=pr_number,
+                        ci_status=ci_status,
+                        success=False,
+                        timed_out=True,
+                        wait_time=elapsed,
+                        error=f"CI checks timed out after {elapsed:.0f}s",
+                    )
+
+                # Check if all checks are complete
+                if ci_status.is_all_passing():
+                    self.logger.info(
+                        "All CI checks passed",
+                        pr_number=pr_number,
+                        elapsed=elapsed,
+                        total_checks=ci_status.total_checks,
+                    )
+                    self.prs_passed += 1
+
+                    self.logger.audit(
+                        EventType.PR_CI_PASSED,
+                        f"CI checks passed for PR #{pr_number}",
+                        resource_type="pr",
+                        resource_id=str(pr_number),
+                        metadata={
+                            "total_checks": ci_status.total_checks,
+                            "wait_time": elapsed,
+                        },
+                    )
+
+                    return CIMonitorResult(
+                        pr_number=pr_number,
+                        ci_status=ci_status,
+                        success=True,
+                        wait_time=elapsed,
+                    )
+
+                elif ci_status.has_failures():
+                    self.logger.warning(
+                        "CI checks failed",
+                        pr_number=pr_number,
+                        failing_checks=ci_status.failing_checks,
+                        total_checks=ci_status.total_checks,
+                    )
+                    self.prs_failed += 1
+
+                    self.logger.audit(
+                        EventType.PR_CI_FAILED,
+                        f"CI checks failed for PR #{pr_number}",
+                        resource_type="pr",
+                        resource_id=str(pr_number),
+                        metadata={
+                            "failing_checks": ci_status.failing_checks,
+                            "total_checks": ci_status.total_checks,
+                        },
+                    )
+
+                    return CIMonitorResult(
+                        pr_number=pr_number,
+                        ci_status=ci_status,
+                        success=False,
+                        wait_time=elapsed,
+                        error=f"{ci_status.failing_checks} of {ci_status.total_checks} checks failed",
+                    )
+
+                # Still pending, log progress and wait
+                self.logger.debug(
+                    "CI checks still pending",
+                    pr_number=pr_number,
+                    pending_checks=ci_status.pending_checks,
+                    passing_checks=ci_status.passing_checks,
+                    elapsed=elapsed,
+                )
+
+                # Wait before next poll
+                import time
+                time.sleep(self.poll_interval)
+
+                # Refresh status
+                ci_status = self.get_ci_status(pr_number)
+
+        except Exception as e:
+            self.logger.error(
+                "Error monitoring CI",
+                pr_number=pr_number,
+                error=str(e),
+                exc_info=True,
+            )
+            self.prs_failed += 1
+
+            return CIMonitorResult(
+                pr_number=pr_number,
+                ci_status=CIStatus(overall_status="failed"),
+                success=False,
+                error=str(e),
+            )
+
+    def _parse_datetime(self, dt_str: Optional[str]) -> Optional[datetime]:
+        """Parse datetime string from GitHub API.
+
+        Args:
+            dt_str: ISO format datetime string
+
+        Returns:
+            Parsed datetime or None
+        """
+        if not dt_str:
+            return None
+
+        try:
+            from dateutil import parser
+            return parser.parse(dt_str)
+        except Exception:
+            return None
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get CI monitoring statistics.
+
+        Returns:
+            Dictionary with statistics
+        """
+        success_rate = (
+            (self.prs_passed / self.total_prs_monitored * 100)
+            if self.total_prs_monitored > 0
+            else 0.0
+        )
+
+        timeout_rate = (
+            (self.prs_timed_out / self.total_prs_monitored * 100)
+            if self.total_prs_monitored > 0
+            else 0.0
+        )
+
+        return {
+            "total_prs_monitored": self.total_prs_monitored,
+            "prs_passed": self.prs_passed,
+            "prs_failed": self.prs_failed,
+            "prs_timed_out": self.prs_timed_out,
+            "success_rate": success_rate,
+            "timeout_rate": timeout_rate,
+        }
+
+    def reset_statistics(self):
+        """Reset CI monitoring statistics."""
+        self.total_prs_monitored = 0
+        self.prs_passed = 0
+        self.prs_failed = 0
+        self.prs_timed_out = 0
