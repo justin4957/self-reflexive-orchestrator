@@ -1,10 +1,18 @@
-"""Unit tests for PRCreator."""
+"""Unit tests for PRCreator and CIMonitor."""
 
 import unittest
 from unittest.mock import Mock, MagicMock, patch, call
 from datetime import datetime, timezone
 
-from src.cycles.pr_cycle import PRCreator, PRDetails, PRCreationResult
+from src.cycles.pr_cycle import (
+    PRCreator,
+    PRDetails,
+    PRCreationResult,
+    CIMonitor,
+    CICheckStatus,
+    CIStatus,
+    CIMonitorResult,
+)
 from src.integrations.git_ops import GitOps
 from src.integrations.github_client import GitHubClient
 from src.core.logger import AuditLogger
@@ -550,6 +558,359 @@ class TestPRCreator(unittest.TestCase):
         self.assertIn("7/10", details)
         self.assertIn("high confidence", details)
         self.assertIn("Additional notes", details)
+
+
+class TestCIMonitor(unittest.TestCase):
+    """Test cases for CIMonitor."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.github_client = Mock(spec=GitHubClient)
+        self.logger = Mock(spec=AuditLogger)
+
+        self.ci_monitor = CIMonitor(
+            github_client=self.github_client,
+            logger=self.logger,
+            poll_interval=1,
+            default_timeout=10,
+        )
+
+    def test_initialization(self):
+        """Test CI monitor initialization."""
+        self.assertEqual(self.ci_monitor.poll_interval, 1)
+        self.assertEqual(self.ci_monitor.default_timeout, 10)
+        self.assertEqual(self.ci_monitor.total_prs_monitored, 0)
+
+    def test_ci_check_status_is_passing(self):
+        """Test CICheckStatus.is_passing() method."""
+        check = CICheckStatus(
+            name="Test Check",
+            status="completed",
+            conclusion="success",
+        )
+        self.assertTrue(check.is_passing())
+
+        check_not_passing = CICheckStatus(
+            name="Test Check",
+            status="in_progress",
+            conclusion=None,
+        )
+        self.assertFalse(check_not_passing.is_passing())
+
+    def test_ci_check_status_is_failing(self):
+        """Test CICheckStatus.is_failing() method."""
+        check = CICheckStatus(
+            name="Test Check",
+            status="completed",
+            conclusion="failure",
+        )
+        self.assertTrue(check.is_failing())
+
+        check_timeout = CICheckStatus(
+            name="Test Check",
+            status="completed",
+            conclusion="timed_out",
+        )
+        self.assertTrue(check_timeout.is_failing())
+
+    def test_ci_check_status_is_pending(self):
+        """Test CICheckStatus.is_pending() method."""
+        check_queued = CICheckStatus(
+            name="Test Check",
+            status="queued",
+        )
+        self.assertTrue(check_queued.is_pending())
+
+        check_in_progress = CICheckStatus(
+            name="Test Check",
+            status="in_progress",
+        )
+        self.assertTrue(check_in_progress.is_pending())
+
+    def test_ci_status_is_all_passing(self):
+        """Test CIStatus.is_all_passing() method."""
+        status = CIStatus(overall_status="passed")
+        self.assertTrue(status.is_all_passing())
+
+        status_failed = CIStatus(overall_status="failed")
+        self.assertFalse(status_failed.is_all_passing())
+
+    def test_ci_status_has_failures(self):
+        """Test CIStatus.has_failures() method."""
+        status = CIStatus(overall_status="failed")
+        self.assertTrue(status.has_failures())
+
+    def test_ci_status_is_pending(self):
+        """Test CIStatus.is_pending() method."""
+        status = CIStatus(overall_status="pending")
+        self.assertTrue(status.is_pending())
+
+    def test_ci_status_to_dict(self):
+        """Test CIStatus.to_dict() conversion."""
+        check1 = CICheckStatus(name="Build", status="completed", conclusion="success")
+        check2 = CICheckStatus(name="Test", status="in_progress")
+
+        status = CIStatus(
+            overall_status="pending",
+            checks=[check1, check2],
+            total_checks=2,
+            passing_checks=1,
+            failing_checks=0,
+            pending_checks=1,
+        )
+
+        status_dict = status.to_dict()
+
+        self.assertEqual(status_dict["overall_status"], "pending")
+        self.assertEqual(status_dict["total_checks"], 2)
+        self.assertEqual(len(status_dict["checks"]), 2)
+        self.assertEqual(status_dict["checks"][0]["name"], "Build")
+        self.assertEqual(status_dict["checks"][0]["conclusion"], "success")
+
+    def test_ci_monitor_result_to_dict(self):
+        """Test CIMonitorResult.to_dict() conversion."""
+        ci_status = CIStatus(overall_status="passed", total_checks=3, passing_checks=3)
+
+        result = CIMonitorResult(
+            pr_number=123,
+            ci_status=ci_status,
+            success=True,
+            wait_time=45.5,
+        )
+
+        result_dict = result.to_dict()
+
+        self.assertEqual(result_dict["pr_number"], 123)
+        self.assertTrue(result_dict["success"])
+        self.assertEqual(result_dict["wait_time"], 45.5)
+        self.assertFalse(result_dict["timed_out"])
+
+    def test_get_ci_status_all_passing(self):
+        """Test get_ci_status with all checks passing."""
+        self.github_client.get_pr_checks.return_value = {
+            "checks": [
+                {"name": "Build", "status": "completed", "conclusion": "success"},
+                {"name": "Test", "status": "completed", "conclusion": "success"},
+                {"name": "Lint", "status": "completed", "conclusion": "success"},
+            ]
+        }
+
+        status = self.ci_monitor.get_ci_status(123)
+
+        self.assertEqual(status.overall_status, "passed")
+        self.assertEqual(status.total_checks, 3)
+        self.assertEqual(status.passing_checks, 3)
+        self.assertEqual(status.failing_checks, 0)
+        self.assertEqual(status.pending_checks, 0)
+
+    def test_get_ci_status_with_failures(self):
+        """Test get_ci_status with failing checks."""
+        self.github_client.get_pr_checks.return_value = {
+            "checks": [
+                {"name": "Build", "status": "completed", "conclusion": "success"},
+                {"name": "Test", "status": "completed", "conclusion": "failure"},
+            ]
+        }
+
+        status = self.ci_monitor.get_ci_status(123)
+
+        self.assertEqual(status.overall_status, "failed")
+        self.assertEqual(status.total_checks, 2)
+        self.assertEqual(status.passing_checks, 1)
+        self.assertEqual(status.failing_checks, 1)
+
+    def test_get_ci_status_with_pending(self):
+        """Test get_ci_status with pending checks."""
+        self.github_client.get_pr_checks.return_value = {
+            "checks": [
+                {"name": "Build", "status": "completed", "conclusion": "success"},
+                {"name": "Test", "status": "in_progress"},
+            ]
+        }
+
+        status = self.ci_monitor.get_ci_status(123)
+
+        self.assertEqual(status.overall_status, "pending")
+        self.assertEqual(status.total_checks, 2)
+        self.assertEqual(status.passing_checks, 1)
+        self.assertEqual(status.pending_checks, 1)
+
+    def test_get_ci_status_no_checks(self):
+        """Test get_ci_status when no checks are present."""
+        self.github_client.get_pr_checks.return_value = {"checks": []}
+
+        status = self.ci_monitor.get_ci_status(123)
+
+        self.assertEqual(status.overall_status, "no_checks")
+        self.assertEqual(status.total_checks, 0)
+
+    def test_get_ci_status_error_handling(self):
+        """Test get_ci_status handles errors gracefully."""
+        self.github_client.get_pr_checks.side_effect = Exception("API error")
+
+        status = self.ci_monitor.get_ci_status(123)
+
+        self.assertEqual(status.overall_status, "failed")
+        self.assertEqual(status.total_checks, 0)
+        self.logger.error.assert_called_once()
+
+    @patch('time.sleep')
+    def test_wait_for_ci_immediate_pass(self, mock_sleep):
+        """Test wait_for_ci when checks pass immediately."""
+        self.github_client.get_pr_checks.return_value = {
+            "checks": [
+                {"name": "Build", "status": "completed", "conclusion": "success"},
+                {"name": "Test", "status": "completed", "conclusion": "success"},
+            ]
+        }
+
+        result = self.ci_monitor.wait_for_ci(123)
+
+        self.assertTrue(result.success)
+        self.assertFalse(result.timed_out)
+        self.assertEqual(result.pr_number, 123)
+        self.assertEqual(self.ci_monitor.prs_passed, 1)
+        mock_sleep.assert_not_called()
+
+    @patch('time.sleep')
+    def test_wait_for_ci_no_checks(self, mock_sleep):
+        """Test wait_for_ci when no checks are present."""
+        self.github_client.get_pr_checks.return_value = {"checks": []}
+
+        result = self.ci_monitor.wait_for_ci(123)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.ci_status.overall_status, "no_checks")
+        self.assertEqual(self.ci_monitor.prs_passed, 1)
+
+    @patch('time.sleep')
+    def test_wait_for_ci_eventual_pass(self, mock_sleep):
+        """Test wait_for_ci when checks eventually pass."""
+        # First call: pending
+        # Second call: passing
+        self.github_client.get_pr_checks.side_effect = [
+            {
+                "checks": [
+                    {"name": "Build", "status": "in_progress"},
+                ]
+            },
+            {
+                "checks": [
+                    {"name": "Build", "status": "completed", "conclusion": "success"},
+                ]
+            },
+        ]
+
+        result = self.ci_monitor.wait_for_ci(123)
+
+        self.assertTrue(result.success)
+        self.assertFalse(result.timed_out)
+        self.assertEqual(self.ci_monitor.prs_passed, 1)
+        mock_sleep.assert_called_once_with(1)
+
+    @patch('time.sleep')
+    def test_wait_for_ci_failure(self, mock_sleep):
+        """Test wait_for_ci when checks fail."""
+        self.github_client.get_pr_checks.return_value = {
+            "checks": [
+                {"name": "Build", "status": "completed", "conclusion": "success"},
+                {"name": "Test", "status": "completed", "conclusion": "failure"},
+            ]
+        }
+
+        result = self.ci_monitor.wait_for_ci(123)
+
+        self.assertFalse(result.success)
+        self.assertFalse(result.timed_out)
+        self.assertIn("1 of 2 checks failed", result.error)
+        self.assertEqual(self.ci_monitor.prs_failed, 1)
+
+    @patch('time.sleep')
+    def test_wait_for_ci_timeout(self, mock_sleep):
+        """Test wait_for_ci timeout behavior."""
+        # Always return pending checks
+        self.github_client.get_pr_checks.return_value = {
+            "checks": [
+                {"name": "Build", "status": "in_progress"},
+            ]
+        }
+
+        # Set a very short timeout
+        result = self.ci_monitor.wait_for_ci(123, timeout=2)
+
+        self.assertFalse(result.success)
+        self.assertTrue(result.timed_out)
+        self.assertIn("timed out", result.error)
+        self.assertEqual(self.ci_monitor.prs_timed_out, 1)
+
+    @patch('time.sleep')
+    def test_wait_for_ci_exception_handling(self, mock_sleep):
+        """Test wait_for_ci handles exceptions."""
+        self.github_client.get_pr_checks.side_effect = Exception("API error")
+
+        result = self.ci_monitor.wait_for_ci(123)
+
+        self.assertFalse(result.success)
+        # When get_ci_status fails, it returns a failed CIStatus with 0 checks
+        # which triggers the failure path with "0 of 0 checks failed"
+        self.assertIn("0 of 0 checks failed", result.error)
+        self.assertEqual(self.ci_monitor.prs_failed, 1)
+
+    def test_parse_datetime_valid(self):
+        """Test _parse_datetime with valid ISO datetime."""
+        dt_str = "2024-01-15T10:30:00Z"
+        result = self.ci_monitor._parse_datetime(dt_str)
+
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, datetime)
+
+    def test_parse_datetime_none(self):
+        """Test _parse_datetime with None input."""
+        result = self.ci_monitor._parse_datetime(None)
+        self.assertIsNone(result)
+
+    def test_parse_datetime_invalid(self):
+        """Test _parse_datetime with invalid datetime string."""
+        result = self.ci_monitor._parse_datetime("invalid")
+        self.assertIsNone(result)
+
+    def test_get_statistics(self):
+        """Test get_statistics method."""
+        self.ci_monitor.total_prs_monitored = 10
+        self.ci_monitor.prs_passed = 7
+        self.ci_monitor.prs_failed = 2
+        self.ci_monitor.prs_timed_out = 1
+
+        stats = self.ci_monitor.get_statistics()
+
+        self.assertEqual(stats["total_prs_monitored"], 10)
+        self.assertEqual(stats["prs_passed"], 7)
+        self.assertEqual(stats["prs_failed"], 2)
+        self.assertEqual(stats["prs_timed_out"], 1)
+        self.assertEqual(stats["success_rate"], 70.0)
+        self.assertEqual(stats["timeout_rate"], 10.0)
+
+    def test_get_statistics_no_prs(self):
+        """Test get_statistics with no PRs monitored."""
+        stats = self.ci_monitor.get_statistics()
+
+        self.assertEqual(stats["total_prs_monitored"], 0)
+        self.assertEqual(stats["success_rate"], 0.0)
+        self.assertEqual(stats["timeout_rate"], 0.0)
+
+    def test_reset_statistics(self):
+        """Test reset_statistics method."""
+        self.ci_monitor.total_prs_monitored = 10
+        self.ci_monitor.prs_passed = 7
+        self.ci_monitor.prs_failed = 2
+        self.ci_monitor.prs_timed_out = 1
+
+        self.ci_monitor.reset_statistics()
+
+        self.assertEqual(self.ci_monitor.total_prs_monitored, 0)
+        self.assertEqual(self.ci_monitor.prs_passed, 0)
+        self.assertEqual(self.ci_monitor.prs_failed, 0)
+        self.assertEqual(self.ci_monitor.prs_timed_out, 0)
 
 
 if __name__ == '__main__':
