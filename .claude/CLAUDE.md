@@ -16,6 +16,43 @@ This project uses a **dual-AI approach** combining:
 
 See `AI_COLLABORATION_STRATEGY.md` for detailed task distribution patterns.
 
+**IMPORTANT - Reporting Issues to multi_agent_coder**:
+
+When you encounter bugs, unexpected behavior, or have feature requests related to the **multi-agent-coder CLI** (located at `../multi_agent_coder`), you MUST create GitHub issues in that repository:
+
+```bash
+# Navigate to multi_agent_coder repo and create issue
+cd ../multi_agent_coder
+gh issue create --title "Bug: [Brief description]" --body "$(cat <<'EOF'
+## Description
+[Detailed description of the bug or feature request]
+
+## Steps to Reproduce (for bugs)
+1. Step 1
+2. Step 2
+3. Expected vs actual behavior
+
+## Context
+- Encountered while working on: [self-reflexive-orchestrator issue #N]
+- Use case: [What you were trying to accomplish]
+
+## Suggested Solution (optional)
+[Any ideas for fixing or implementing]
+EOF
+)"
+cd -  # Return to orchestrator repo
+```
+
+**When to report**:
+- Bugs in multi-agent-coder output parsing
+- Unexpected response formats
+- Missing features needed for orchestrator integration
+- Performance issues with multi-agent-coder
+- API changes or breaking changes
+- Documentation gaps
+
+This ensures the multi-agent-coder maintainers can track and address issues affecting the orchestrator.
+
 ### 2. Issue Processing Workflow
 
 When working on issues, always follow this pattern:
