@@ -164,15 +164,15 @@ class Dashboard:
                 SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success,
                 SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed
             FROM issue_processing
-            WHERE started_at >= ?
+            WHERE created_at >= ?
         """,
             (today_str,),
         )
 
         row = results[0] if results else {}
-        total = row.get("total", 0) or 0
-        success = row.get("success", 0) or 0
-        failed = row.get("failed", 0) or 0
+        total = row["total"] if row else 0
+        success = row["success"] if row and row["success"] else 0
+        failed = row["failed"] if row and row["failed"] else 0
 
         # Get PR merges (assuming stored in pr_management table)
         pr_results = self.database.execute(
@@ -184,24 +184,30 @@ class Dashboard:
             (today_str,),
         )
 
-        prs_merged = pr_results[0].get("merged", 0) if pr_results else 0
+        prs_merged = (
+            pr_results[0]["merged"] if pr_results and pr_results[0]["merged"] else 0
+        )
 
         # Get API costs
         cost_results = self.database.execute(
             """
-            SELECT SUM(llm_cost) as total_cost
+            SELECT SUM(cost) as total_cost
             FROM code_generation
-            WHERE started_at >= ?
+            WHERE created_at >= ?
         """,
             (today_str,),
         )
 
-        cost = cost_results[0].get("total_cost", 0.0) if cost_results else 0.0
+        cost = (
+            cost_results[0]["total_cost"]
+            if cost_results and cost_results[0]["total_cost"]
+            else 0.0
+        )
 
         return {
-            "total": total,
-            "success": success,
-            "failed": failed,
+            "total": total or 0,
+            "success": success or 0,
+            "failed": failed or 0,
             "prs_merged": prs_merged or 0,
             "cost": cost or 0.0,
         }
@@ -223,7 +229,11 @@ class Dashboard:
             (),
         )
 
-        avg_duration = results[0].get("avg_duration", 0.0) if results else 0.0
+        avg_duration = (
+            results[0]["avg_duration"]
+            if results and results[0]["avg_duration"]
+            else 0.0
+        )
 
         # Get cache hit rate
         cache_hit_rate = 0.0
@@ -243,9 +253,9 @@ class Dashboard:
             (),
         )
 
-        if error_results and error_results[0].get("total", 0):
+        if error_results and error_results[0]["total"]:
             total = error_results[0]["total"]
-            errors = error_results[0].get("errors", 0) or 0
+            errors = error_results[0]["errors"] if error_results[0]["errors"] else 0
             error_rate = errors / total
         else:
             error_rate = 0.0
@@ -265,27 +275,39 @@ class Dashboard:
         # Get 7-day cost
         results_7d = self.database.execute(
             """
-            SELECT SUM(llm_cost) as total_cost, COUNT(*) as operations
+            SELECT SUM(cost) as total_cost, COUNT(*) as operations
             FROM code_generation
-            WHERE started_at >= datetime('now', '-7 days')
+            WHERE created_at >= datetime('now', '-7 days')
         """,
             (),
         )
 
-        cost_7d = results_7d[0].get("total_cost", 0.0) if results_7d else 0.0
-        ops_7d = results_7d[0].get("operations", 0) if results_7d else 0
+        cost_7d = (
+            results_7d[0]["total_cost"]
+            if results_7d and results_7d[0]["total_cost"]
+            else 0.0
+        )
+        ops_7d = (
+            results_7d[0]["operations"]
+            if results_7d and results_7d[0]["operations"]
+            else 0
+        )
 
         # Get 30-day cost
         results_30d = self.database.execute(
             """
-            SELECT SUM(llm_cost) as total_cost
+            SELECT SUM(cost) as total_cost
             FROM code_generation
-            WHERE started_at >= datetime('now', '-30 days')
+            WHERE created_at >= datetime('now', '-30 days')
         """,
             (),
         )
 
-        cost_30d = results_30d[0].get("total_cost", 0.0) if results_30d else 0.0
+        cost_30d = (
+            results_30d[0]["total_cost"]
+            if results_30d and results_30d[0]["total_cost"]
+            else 0.0
+        )
 
         # Calculate cost per operation
         cost_per_op = (cost_7d / ops_7d) if ops_7d > 0 else 0.0
@@ -307,40 +329,38 @@ class Dashboard:
         Returns:
             Dictionary with quality data
         """
-        # Get test pass rate
+        # Get test pass rate from code_generation using test_pass_rate column
         test_results = self.database.execute(
             """
             SELECT
                 COUNT(*) as total,
-                SUM(CASE WHEN tests_passed = 1 THEN 1 ELSE 0 END) as passed
+                AVG(test_pass_rate) as avg_pass_rate
             FROM code_generation
-            WHERE tests_run = 1
-              AND started_at >= datetime('now', '-7 days')
+            WHERE test_pass_rate IS NOT NULL
+              AND created_at >= datetime('now', '-7 days')
         """,
             (),
         )
 
-        if test_results and test_results[0].get("total", 0):
-            total = test_results[0]["total"]
-            passed = test_results[0].get("passed", 0) or 0
-            test_pass_rate = passed / total
+        if test_results and test_results[0]["total"]:
+            test_pass_rate = test_results[0]["avg_pass_rate"] or 0.0
         else:
             test_pass_rate = 0.0
 
-        # Get average complexity
+        # Get average complexity from issue_processing using complexity column
         complexity_results = self.database.execute(
             """
-            SELECT AVG(complexity_score) as avg_complexity
+            SELECT AVG(complexity) as avg_complexity
             FROM issue_processing
-            WHERE complexity_score IS NOT NULL
-              AND started_at >= datetime('now', '-7 days')
+            WHERE complexity IS NOT NULL
+              AND created_at >= datetime('now', '-7 days')
         """,
             (),
         )
 
         avg_complexity = (
-            complexity_results[0].get("avg_complexity", 0.0)
-            if complexity_results
+            complexity_results[0]["avg_complexity"]
+            if complexity_results and complexity_results[0]["avg_complexity"]
             else 0.0
         )
 
@@ -377,10 +397,10 @@ class Dashboard:
         for row in results:
             operations.append(
                 {
-                    "type": row.get("operation_type", "unknown"),
-                    "id": row.get("operation_id", ""),
-                    "started_at": row.get("started_at", ""),
-                    "context": row.get("context", ""),
+                    "type": row["operation_type"] or "unknown",
+                    "id": row["operation_id"] or "",
+                    "started_at": row["started_at"] or "",
+                    "context": row["context"] or "",
                 }
             )
 
@@ -416,12 +436,12 @@ class Dashboard:
         for row in results:
             operations.append(
                 {
-                    "type": row.get("operation_type", "unknown"),
-                    "id": row.get("operation_id", ""),
-                    "started_at": row.get("started_at", ""),
-                    "completed_at": row.get("completed_at", ""),
-                    "success": bool(row.get("success", 0)),
-                    "duration": row.get("duration_seconds", 0.0) or 0.0,
+                    "type": row["operation_type"] or "unknown",
+                    "id": row["operation_id"] or "",
+                    "started_at": row["started_at"] or "",
+                    "completed_at": row["completed_at"] or "",
+                    "success": bool(row["success"]),
+                    "duration": row["duration_seconds"] or 0.0,
                 }
             )
 

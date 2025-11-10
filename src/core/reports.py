@@ -272,20 +272,20 @@ class ReportGenerator:
         results = self.database.execute(
             """
             SELECT
-                SUM(llm_cost) as total_cost,
+                SUM(cost) as total_cost,
                 SUM(tokens_used) as total_tokens,
                 COUNT(*) as operations
             FROM code_generation
-            WHERE started_at >= ?
+            WHERE created_at >= ?
         """,
             (since,),
         )
 
         if results and results[0]:
             row = results[0]
-            total_cost = row.get("total_cost", 0.0) or 0.0
-            total_tokens = row.get("tokens_used", 0) or 0
-            operations = row.get("operations", 0) or 0
+            total_cost = row["total_cost"] or 0.0
+            total_tokens = row["total_tokens"] or 0
+            operations = row["operations"] or 0
             avg_cost = total_cost / operations if operations > 0 else 0.0
 
             return {
@@ -316,19 +316,19 @@ class ReportGenerator:
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success,
-                AVG(CASE WHEN duration_seconds IS NOT NULL
-                    THEN duration_seconds ELSE 0 END) as avg_duration
+                AVG(CASE WHEN time_to_completion_seconds IS NOT NULL
+                    THEN time_to_completion_seconds ELSE 0 END) as avg_duration
             FROM issue_processing
-            WHERE started_at >= ?
+            WHERE created_at >= ?
         """,
             (since,),
         )
 
         if results and results[0]:
             row = results[0]
-            total = row.get("total", 0) or 0
-            success = row.get("success", 0) or 0
-            avg_duration = row.get("avg_duration", 0.0) or 0.0
+            total = row["total"] or 0
+            success = row["success"] or 0
+            avg_duration = row["avg_duration"] or 0.0
             success_rate = success / total if total > 0 else 0.0
 
             return {
@@ -367,8 +367,8 @@ class ReportGenerator:
 
         if results and results[0]:
             row = results[0]
-            total = row.get("total", 0) or 0
-            merged = row.get("merged", 0) or 0
+            total = row["total"] or 0
+            merged = row["merged"] or 0
             merge_rate = merged / total if total > 0 else 0.0
 
             return {
@@ -408,9 +408,9 @@ class ReportGenerator:
 
         return [
             {
-                "day": row.get("day", ""),
-                "operations": row.get("operations", 0) or 0,
-                "successes": row.get("successes", 0) or 0,
+                "day": row["day"] or "",
+                "operations": row["operations"] or 0,
+                "successes": row["successes"] or 0,
             }
             for row in results
         ]
@@ -427,12 +427,12 @@ class ReportGenerator:
         results = self.database.execute(
             """
             SELECT
-                DATE(started_at) as day,
-                SUM(llm_cost) as cost,
+                DATE(created_at) as day,
+                SUM(cost) as cost,
                 SUM(tokens_used) as tokens
             FROM code_generation
-            WHERE started_at >= ?
-            GROUP BY DATE(started_at)
+            WHERE created_at >= ?
+            GROUP BY DATE(created_at)
             ORDER BY day DESC
         """,
             (since,),
@@ -440,9 +440,9 @@ class ReportGenerator:
 
         return [
             {
-                "day": row.get("day", ""),
-                "cost": row.get("cost", 0.0) or 0.0,
-                "tokens": row.get("tokens", 0) or 0,
+                "day": row["day"] or "",
+                "cost": row["cost"] or 0.0,
+                "tokens": row["tokens"] or 0,
             }
             for row in results
         ]
@@ -471,9 +471,7 @@ class ReportGenerator:
             (since,),
         )
 
-        return {
-            row.get("error_type", "unknown"): row.get("count", 0) for row in results
-        }
+        return {row["error_type"] or "unknown": row["count"] or 0 for row in results}
 
     def _get_slowest_operations(
         self, since: str, limit: int = 10
@@ -505,10 +503,10 @@ class ReportGenerator:
 
         return [
             {
-                "type": row.get("operation_type", "unknown"),
-                "id": row.get("operation_id", ""),
-                "duration": row.get("duration_seconds", 0.0) or 0.0,
-                "started_at": row.get("started_at", ""),
+                "type": row["operation_type"] or "unknown",
+                "id": row["operation_id"] or "",
+                "duration": row["duration_seconds"] or 0.0,
+                "started_at": row["started_at"] or "",
             }
             for row in results
         ]
@@ -529,13 +527,13 @@ class ReportGenerator:
             """
             SELECT
                 cg.operation_id,
-                cg.llm_cost,
+                cg.cost,
                 cg.tokens_used,
-                cg.started_at
+                cg.created_at
             FROM code_generation cg
-            WHERE cg.llm_cost IS NOT NULL
-              AND cg.started_at >= ?
-            ORDER BY cg.llm_cost DESC
+            WHERE cg.cost IS NOT NULL
+              AND cg.created_at >= ?
+            ORDER BY cg.cost DESC
             LIMIT ?
         """,
             (since, limit),
@@ -543,10 +541,10 @@ class ReportGenerator:
 
         return [
             {
-                "id": row.get("operation_id", ""),
-                "cost": row.get("llm_cost", 0.0) or 0.0,
-                "tokens": row.get("tokens_used", 0) or 0,
-                "started_at": row.get("started_at", ""),
+                "id": row["operation_id"] or "",
+                "cost": row["cost"] or 0.0,
+                "tokens": row["tokens_used"] or 0,
+                "started_at": row["created_at"] or "",
             }
             for row in results
         ]
