@@ -1,19 +1,17 @@
 """Unit tests for CI Failure Analyzer."""
 
 import unittest
-from unittest.mock import Mock, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock
 
-from src.analyzers.ci_failure_analyzer import (
-    CIFailureAnalyzer,
-    CIFailureCategory,
-    CIFailureDetails,
-    CIFixSuggestion,
-    CIFailureAnalysis,
-)
+from src.analyzers.ci_failure_analyzer import (CIFailureAnalysis,
+                                               CIFailureAnalyzer,
+                                               CIFailureCategory,
+                                               CIFailureDetails,
+                                               CIFixSuggestion)
+from src.core.logger import AuditLogger
 from src.cycles.pr_cycle import CICheckStatus, CIStatus
 from src.integrations.multi_agent_coder_client import MultiAgentCoderClient
-from src.core.logger import AuditLogger
 
 
 class TestCIFailureAnalyzer(unittest.TestCase):

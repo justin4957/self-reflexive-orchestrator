@@ -4,24 +4,22 @@ Handles creating pull requests with comprehensive descriptions,
 linking to issues, managing labels and reviewers, and code review integration.
 """
 
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..integrations.git_ops import GitOps
-from ..integrations.github_client import GitHubClient
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    PRReviewResult,
-    ReviewComment,
-)
 from ..analyzers.implementation_planner import ImplementationPlan
-from ..integrations.test_runner import TestResult
 from ..core.logger import AuditLogger, EventType
 from ..core.state import WorkItem
+from ..integrations.git_ops import GitOps
+from ..integrations.github_client import GitHubClient
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     PRReviewResult,
+                                                     ReviewComment)
+from ..integrations.test_runner import TestResult
+from .pr_merger import MergeResult, PRMerger
 from .review_processor import ReviewFeedbackProcessor, ReviewProcessingResult
-from .pr_merger import PRMerger, MergeResult
 
 
 @dataclass

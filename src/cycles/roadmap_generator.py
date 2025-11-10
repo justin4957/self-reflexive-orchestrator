@@ -4,23 +4,18 @@ Combines codebase analysis, multi-agent ideation, and formatting
 to produce actionable, GitHub-ready roadmaps.
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..analyzers.codebase_analyzer import CodebaseAnalyzer, CodebaseAnalysis
-from ..analyzers.multi_agent_analyzer import (
-    MultiAgentAnalyzer,
-    MultiAgentAnalysisResult,
-)
-from ..cycles.multi_agent_ideation import (
-    MultiAgentIdeation,
-    IdeationResult,
-    SynthesizedRoadmap,
-)
-from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
+from ..analyzers.codebase_analyzer import CodebaseAnalysis, CodebaseAnalyzer
+from ..analyzers.multi_agent_analyzer import (MultiAgentAnalysisResult,
+                                              MultiAgentAnalyzer)
 from ..core.logger import AuditLogger
+from ..cycles.multi_agent_ideation import (IdeationResult, MultiAgentIdeation,
+                                           SynthesizedRoadmap)
+from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
 
 
 @dataclass

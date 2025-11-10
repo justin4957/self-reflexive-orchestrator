@@ -1,18 +1,14 @@
 """Unit tests for CodebaseAnalyzer."""
 
-import unittest
-import tempfile
 import shutil
+import tempfile
+import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from src.analyzers.codebase_analyzer import (
-    CodebaseAnalyzer,
-    FileMetrics,
-    CodebaseMetrics,
-    DependencyInfo,
-    CodebaseAnalysis,
-)
+from src.analyzers.codebase_analyzer import (CodebaseAnalysis,
+                                             CodebaseAnalyzer, CodebaseMetrics,
+                                             DependencyInfo, FileMetrics)
 from src.core.logger import AuditLogger
 
 

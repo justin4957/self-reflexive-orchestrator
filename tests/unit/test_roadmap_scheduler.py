@@ -1,18 +1,15 @@
 """Unit tests for RoadmapScheduler."""
 
-import unittest
-import tempfile
 import shutil
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock
-from datetime import datetime, timedelta, timezone
 
-from src.cycles.roadmap_scheduler import (
-    RoadmapScheduler,
-    GenerationFrequency,
-    ScheduleState,
-)
 from src.core.logger import AuditLogger
+from src.cycles.roadmap_scheduler import (GenerationFrequency,
+                                          RoadmapScheduler, ScheduleState)
 
 
 class TestRoadmapScheduler(unittest.TestCase):

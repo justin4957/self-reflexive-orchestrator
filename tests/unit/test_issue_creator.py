@@ -1,25 +1,18 @@
 """Unit tests for IssueCreator."""
 
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
 
-from src.cycles.issue_creator import (
-    IssueCreator,
-    IssueCategory,
-    ComplexityLevel,
-    CreatedIssue,
-    IssueCreationResult,
-)
-from src.cycles.multi_agent_ideation import FeatureProposal, ProposalPriority
-from src.cycles.roadmap_validator import (
-    ValidatedRoadmap,
-    ValidationDecision,
-    ProposalValidation,
-    SynthesizedRoadmap,
-    DialecticalValidation,
-)
-from src.integrations.github_client import GitHubClient
 from src.core.logger import AuditLogger
+from src.cycles.issue_creator import (ComplexityLevel, CreatedIssue,
+                                      IssueCategory, IssueCreationResult,
+                                      IssueCreator)
+from src.cycles.multi_agent_ideation import FeatureProposal, ProposalPriority
+from src.cycles.roadmap_validator import (DialecticalValidation,
+                                          ProposalValidation,
+                                          SynthesizedRoadmap, ValidatedRoadmap,
+                                          ValidationDecision)
+from src.integrations.github_client import GitHubClient
 
 
 class TestIssueCreator(unittest.TestCase):

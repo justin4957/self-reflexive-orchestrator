@@ -4,15 +4,16 @@ Processes feedback from code reviews, generates fixes using LLM,
 and applies changes to address review comments.
 """
 
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..integrations.multi_agent_coder_client import PRReviewResult, ReviewComment
-from ..integrations.git_ops import GitOps
-from ..core.logger import AuditLogger, EventType
 from ..core.config import LLMConfig
+from ..core.logger import AuditLogger, EventType
+from ..integrations.git_ops import GitOps
+from ..integrations.multi_agent_coder_client import (PRReviewResult,
+                                                     ReviewComment)
 
 
 @dataclass

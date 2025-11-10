@@ -7,17 +7,14 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.core.logger import setup_logging
 from src.cycles.issue_creator import IssueCreator
 from src.cycles.multi_agent_ideation import FeatureProposal, ProposalPriority
-from src.cycles.roadmap_validator import (
-    ValidatedRoadmap,
-    ValidationDecision,
-    ProposalValidation,
-    SynthesizedRoadmap,
-    DialecticalValidation,
-)
+from src.cycles.roadmap_validator import (DialecticalValidation,
+                                          ProposalValidation,
+                                          SynthesizedRoadmap, ValidatedRoadmap,
+                                          ValidationDecision)
 from src.integrations.github_client import GitHubClient
-from src.core.logger import setup_logging
 
 
 def test_create_issues():

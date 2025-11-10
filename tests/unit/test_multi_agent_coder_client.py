@@ -1,18 +1,16 @@
 """Unit tests for MultiAgentCoderClient."""
 
-import unittest
-from unittest.mock import Mock, patch, MagicMock
 import subprocess
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
 
-from src.integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentStrategy,
-    MultiAgentResponse,
-    PRReviewResult,
-    ReviewComment,
-)
 from src.core.logger import AuditLogger
+from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                       MultiAgentResponse,
+                                                       MultiAgentStrategy,
+                                                       PRReviewResult,
+                                                       ReviewComment)
 
 
 class TestMultiAgentCoderClient(unittest.TestCase):

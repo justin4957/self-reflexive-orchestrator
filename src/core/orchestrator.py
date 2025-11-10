@@ -1,24 +1,24 @@
 """Main orchestrator that coordinates all operations."""
 
 import time
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
-from .config import Config, ConfigManager
-from .logger import AuditLogger, setup_logging, EventType
-from .state import StateManager, OrchestratorState
-from ..integrations.github_client import GitHubClient
-from ..integrations.git_ops import GitOps
-from ..integrations.test_runner import TestRunner
-from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
-from ..analyzers.issue_analyzer import IssueAnalyzer
-from ..analyzers.implementation_planner import ImplementationPlanner
-from ..analyzers.test_failure_analyzer import TestFailureAnalyzer
 from ..analyzers.ci_failure_analyzer import CIFailureAnalyzer
+from ..analyzers.implementation_planner import ImplementationPlanner
+from ..analyzers.issue_analyzer import IssueAnalyzer
+from ..analyzers.test_failure_analyzer import TestFailureAnalyzer
 from ..cycles.code_executor import CodeExecutor
-from ..cycles.pr_cycle import PRCreator
 from ..cycles.issue_cycle import IssueMonitor
 from ..cycles.issue_processor import IssueProcessor, ProcessingConfig
+from ..cycles.pr_cycle import PRCreator
+from ..integrations.git_ops import GitOps
+from ..integrations.github_client import GitHubClient
+from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
+from ..integrations.test_runner import TestRunner
+from .config import Config, ConfigManager
+from .logger import AuditLogger, EventType, setup_logging
+from .state import OrchestratorState, StateManager
 
 
 class Orchestrator:

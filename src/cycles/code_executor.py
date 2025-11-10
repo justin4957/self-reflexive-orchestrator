@@ -1,20 +1,19 @@
 """Code execution engine for implementing changes based on implementation plans."""
 
 import os
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
+from ..analyzers.implementation_planner import (ImplementationPlan,
+                                                ImplementationStep)
 from ..core.logger import AuditLogger, EventType
-from ..core.state import WorkItem, OrchestratorState
-from ..analyzers.implementation_planner import ImplementationPlan, ImplementationStep
-from ..integrations.git_ops import GitOps, GitOpsError, CommitInfo
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentResponse,
-    MultiAgentStrategy,
-)
+from ..core.state import OrchestratorState, WorkItem
+from ..integrations.git_ops import CommitInfo, GitOps, GitOpsError
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse,
+                                                     MultiAgentStrategy)
 
 
 class ExecutionStatus(Enum):

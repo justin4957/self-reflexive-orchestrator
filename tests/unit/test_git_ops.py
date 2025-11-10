@@ -1,20 +1,15 @@
 """Unit tests for GitOps."""
 
-import unittest
-from unittest.mock import Mock, patch, MagicMock, call
 import subprocess
+import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, call, patch
 
-from src.integrations.git_ops import (
-    GitOps,
-    GitStatus,
-    CommitInfo,
-    GitOpsError,
-    GitBranchError,
-    GitCommitError,
-)
 from src.core.logger import AuditLogger
+from src.integrations.git_ops import (CommitInfo, GitBranchError,
+                                      GitCommitError, GitOps, GitOpsError,
+                                      GitStatus)
 
 
 class TestGitOps(unittest.TestCase):

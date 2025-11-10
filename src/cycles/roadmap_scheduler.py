@@ -4,12 +4,12 @@ Manages scheduling of roadmap generation based on configured frequency,
 tracks last generation time, and determines when next generation is due.
 """
 
-from typing import Optional, Dict, Any
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-import json
+from typing import Any, Dict, Optional
 
 from ..core.logger import AuditLogger
 

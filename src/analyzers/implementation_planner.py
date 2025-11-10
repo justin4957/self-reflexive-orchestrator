@@ -1,18 +1,17 @@
 """Implementation planning using multi-agent-coder for enhanced planning."""
 
 import re
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from ..core.logger import AuditLogger, EventType
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentResponse,
-    MultiAgentStrategy,
-)
-from ..analyzers.issue_analyzer import IssueAnalysis
 from github.Issue import Issue
+
+from ..analyzers.issue_analyzer import IssueAnalysis
+from ..core.logger import AuditLogger, EventType
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse,
+                                                     MultiAgentStrategy)
 
 
 class PlanConfidence(Enum):

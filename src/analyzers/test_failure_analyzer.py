@@ -7,18 +7,16 @@ This module implements multi-AI test failure analysis:
 """
 
 import re
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..integrations.test_runner import TestResult, TestFailure, TestFramework
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentStrategy,
-    MultiAgentResponse,
-)
 from ..core.logger import AuditLogger, EventType
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse,
+                                                     MultiAgentStrategy)
+from ..integrations.test_runner import TestFailure, TestFramework, TestResult
 
 
 class FailureCategory(Enum):

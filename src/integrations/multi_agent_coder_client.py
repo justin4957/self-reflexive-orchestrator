@@ -1,13 +1,13 @@
 """Integration with multi-agent-coder CLI for enhanced analysis."""
 
-import subprocess
 import json
 import os
-from typing import Dict, Any, List, Optional
-from pathlib import Path
-from dataclasses import dataclass, asdict, field
-from enum import Enum
+import subprocess
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger
 from ..safety.cost_tracker import CostTracker, Provider
