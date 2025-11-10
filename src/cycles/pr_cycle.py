@@ -20,6 +20,7 @@ from ..analyzers.implementation_planner import ImplementationPlan
 from ..integrations.test_runner import TestResult
 from ..core.logger import AuditLogger, EventType
 from ..core.state import WorkItem
+from .review_processor import ReviewFeedbackProcessor, ReviewProcessingResult
 
 
 @dataclass
