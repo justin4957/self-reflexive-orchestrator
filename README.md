@@ -166,6 +166,53 @@ safety:
   rollback_on_test_failure: true
 ```
 
+## 🛡️ Safety & Monitoring
+
+The orchestrator includes comprehensive safety mechanisms for reliable, secure autonomous operation:
+
+### Multi-Layer Safety
+
+1. **Rate Limiting**: Prevents runaway API usage with token bucket algorithm
+2. **Cost Tracking**: Enforces daily budget limits and tracks spending per provider
+3. **Complexity Guards**: Blocks overly complex or risky code changes
+4. **File Protection**: Prevents modification of critical files (`.env`, configs, etc.)
+5. **Breaking Change Detection**: Identifies and gates changes that could break functionality
+6. **Rollback Capability**: Git-based rollback points for quick recovery
+7. **Human Approval Gates**: Multi-agent risk assessment with automatic escalation
+8. **Health Monitoring**: Continuous monitoring of CPU, memory, disk, and API health
+9. **Notifications**: Real-time alerts via Slack, email, or webhooks
+
+### Production-Ready Features
+
+- ✅ **Defense in Depth**: Multiple independent safety layers
+- ✅ **Fail-Safe Defaults**: Safe behavior on errors
+- ✅ **Observable**: Statistics and metrics for all safety components
+- ✅ **Configurable**: Adjust thresholds to your needs
+- ✅ **Auditable**: Complete audit trail of all decisions and violations
+- ✅ **Tested**: Comprehensive integration tests for safety features
+
+### Quick Safety Check
+
+```bash
+# Check system health
+python -m src.cli health-check
+
+# View pending approvals
+python -m src.cli approvals list
+
+# Check cost usage
+python -m src.cli metrics cost
+
+# View safety statistics
+python -m src.cli metrics safety
+```
+
+### Documentation
+
+- **[Safety Features Guide](docs/safety.md)**: Complete safety documentation
+- **[Operations Runbook](docs/operations.md)**: How to run and maintain the orchestrator
+- **[Troubleshooting Guide](docs/troubleshooting.md)**: Common issues and solutions
+
 ## 🏗️ Architecture
 
 ```
