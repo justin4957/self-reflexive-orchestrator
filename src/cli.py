@@ -720,6 +720,279 @@ def _get_status_color(status: str) -> str:
         return "white"
 
 
+@cli.command("rollback")
+@click.argument("target")
+@click.option(
+    "--type",
+    "rollback_type",
+    type=click.Choice(["pr", "tag", "commit"]),
+    default="tag",
+    help="Type of rollback target (pr number, tag name, or commit SHA)",
+)
+@click.option(
+    "--reason",
+    help="Reason for rollback (required for PR rollbacks)",
+)
+@click.option(
+    "--no-cleanup",
+    is_flag=True,
+    help="Skip branch cleanup after rollback",
+)
+@click.option(
+    "--hard-reset",
+    is_flag=True,
+    help="Use hard reset instead of revert commits (dangerous, loses history)",
+)
+@click.option(
+    "--create-revert-pr",
+    is_flag=True,
+    help="Create a revert PR instead of direct revert (for PR rollbacks)",
+)
+@click.pass_context
+def rollback(
+    ctx,
+    target: str,
+    rollback_type: str,
+    reason: Optional[str],
+    no_cleanup: bool,
+    hard_reset: bool,
+    create_revert_pr: bool,
+):
+    """Rollback failed changes or merged PRs.
+
+    TARGET: The rollback target (PR number, tag name, or commit SHA)
+
+    Examples:
+      orchestrator rollback 123 --type pr --reason "Tests failing"
+      orchestrator rollback rollback-point-20240115-143022 --type tag
+      orchestrator rollback abc123def --type commit
+      orchestrator rollback --list-tags
+    """
+    try:
+        from .safety.rollback import RollbackManager
+        from .integrations.github_client import GitHubClient
+        from .core.logger import setup_logging
+        from .core.config import ConfigManager
+
+        console.print(Panel.fit("🔄 Rollback Operation", style="bold blue"))
+
+        # Load configuration
+        config_manager = ConfigManager(ctx.obj.get("config_path"))
+        config = config_manager.load_config()
+        logger = setup_logging()
+
+        # Initialize GitHub client
+        github_client = GitHubClient(
+            token=config.github.token,
+            repository=config.github.repository,
+            logger=logger,
+        )
+
+        # Initialize rollback manager
+        rollback_manager = RollbackManager(
+            repository_path=str(Path.cwd()),
+            github_client=github_client,
+            logger=logger,
+            auto_cleanup_branches=not no_cleanup,
+        )
+
+        # Handle different rollback types
+        if rollback_type == "pr":
+            # Rollback a merged PR
+            if not reason:
+                console.print(
+                    "[red]✗[/red] --reason is required for PR rollbacks",
+                    style="bold red",
+                )
+                sys.exit(1)
+
+            try:
+                pr_number = int(target)
+            except ValueError:
+                console.print(
+                    f"[red]✗[/red] Invalid PR number: {target}", style="bold red"
+                )
+                sys.exit(1)
+
+            console.print(f"[cyan]→[/cyan] Rolling back PR #{pr_number}...")
+            console.print(f"[dim]Reason: {reason}[/dim]")
+
+            result = rollback_manager.rollback_pr(
+                pr_number=pr_number,
+                reason=reason,
+                create_revert_pr=create_revert_pr,
+            )
+
+        else:
+            # Rollback to a tag or commit
+            console.print(
+                f"[cyan]→[/cyan] Rolling back to {rollback_type}: {target}..."
+            )
+
+            # For tag rollback, find the rollback point
+            if rollback_type == "tag":
+                rollback_points = rollback_manager.list_rollback_points()
+                rollback_point = None
+
+                for rp in rollback_points:
+                    if rp.tag_name == target:
+                        rollback_point = rp
+                        break
+
+                if not rollback_point:
+                    console.print(
+                        f"[red]✗[/red] Rollback point not found: {target}",
+                        style="bold red",
+                    )
+                    console.print("\nAvailable rollback points:")
+                    for rp in rollback_points:
+                        console.print(f"  • {rp.tag_name} ({rp.description})")
+                    sys.exit(1)
+
+            else:  # commit
+                # Create temporary rollback point for commit
+                from .safety.rollback import RollbackPoint
+                from datetime import datetime, timezone
+
+                rollback_point = RollbackPoint(
+                    commit_sha=target,
+                    tag_name=f"rollback-to-{target[:8]}",
+                    description=f"Rollback to commit {target[:8]}",
+                    created_at=datetime.now(timezone.utc),
+                    branch_name=rollback_manager._get_current_branch(),
+                )
+
+            # Perform rollback
+            result = rollback_manager.rollback(
+                rollback_point=rollback_point,
+                cleanup_branches=not no_cleanup,
+                create_revert_commit=not hard_reset,
+            )
+
+        # Display results
+        if result.success:
+            console.print("\n[green]✅ Rollback completed successfully![/green]\n")
+
+            # Results table
+            results_table = Table(show_header=False)
+            results_table.add_column("Metric", style="cyan")
+            results_table.add_column("Value")
+
+            results_table.add_row("Target", result.rollback_point.tag_name)
+            results_table.add_row("Commits Reverted", str(len(result.reverted_commits)))
+            results_table.add_row("Branches Cleaned", str(len(result.cleaned_branches)))
+
+            if result.revert_commit_sha:
+                results_table.add_row(
+                    "Revert Commit", result.revert_commit_sha[:8] + "..."
+                )
+
+            console.print(results_table)
+
+            if result.reverted_commits:
+                console.print("\n[bold]Reverted Commits:[/bold]")
+                for commit_sha in result.reverted_commits[:5]:
+                    console.print(f"  • {commit_sha[:8]}")
+                if len(result.reverted_commits) > 5:
+                    console.print(f"  ... and {len(result.reverted_commits) - 5} more")
+
+            if result.cleaned_branches:
+                console.print("\n[bold]Cleaned Branches:[/bold]")
+                for branch in result.cleaned_branches:
+                    console.print(f"  • {branch}")
+
+        else:
+            console.print("\n[red]✗ Rollback failed[/red]\n", style="bold red")
+            console.print(f"Error: {result.error}")
+            sys.exit(1)
+
+    except Exception as e:
+        console.print(f"[red]✗ Rollback error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("list-rollback-points")
+@click.pass_context
+def list_rollback_points(ctx):
+    """List available rollback points (tags).
+
+    Shows all rollback points that have been created before risky operations.
+    """
+    try:
+        from .safety.rollback import RollbackManager
+        from .integrations.github_client import GitHubClient
+        from .core.logger import setup_logging
+        from .core.config import ConfigManager
+
+        console.print(Panel.fit("🏷️  Rollback Points", style="bold blue"))
+
+        # Load configuration
+        config_manager = ConfigManager(ctx.obj.get("config_path"))
+        config = config_manager.load_config()
+        logger = setup_logging()
+
+        # Initialize GitHub client
+        github_client = GitHubClient(
+            token=config.github.token,
+            repository=config.github.repository,
+            logger=logger,
+        )
+
+        # Initialize rollback manager
+        rollback_manager = RollbackManager(
+            repository_path=str(Path.cwd()),
+            github_client=github_client,
+            logger=logger,
+        )
+
+        # Get rollback points
+        rollback_points = rollback_manager.list_rollback_points()
+
+        if not rollback_points:
+            console.print("[yellow]No rollback points found[/yellow]")
+            console.print(
+                "\nRollback points are created automatically before risky operations."
+            )
+            return
+
+        # Display table
+        table = Table(title=f"Available Rollback Points ({len(rollback_points)})")
+        table.add_column("Tag Name", style="cyan")
+        table.add_column("Commit", style="yellow")
+        table.add_column("Description")
+        table.add_column("Created At")
+
+        for rp in sorted(rollback_points, key=lambda x: x.created_at, reverse=True):
+            table.add_row(
+                rp.tag_name,
+                rp.commit_sha[:8] + "...",
+                (
+                    rp.description[:50] + "..."
+                    if len(rp.description) > 50
+                    else rp.description
+                ),
+                rp.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+
+        console.print(table)
+
+        console.print(
+            "\n[dim]Use 'orchestrator rollback <tag_name> --type tag' to rollback to a point[/dim]"
+        )
+
+    except Exception as e:
+        console.print(
+            f"[red]✗ Error listing rollback points: {e}[/red]", style="bold red"
+        )
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     cli(obj={})
