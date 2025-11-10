@@ -554,3 +554,33 @@ class GitOps:
                     return scope
 
         return None
+
+    def run_command(self, command: str) -> str:
+        """Run a git command string.
+
+        This is a convenience method for running git commands as strings.
+        For more complex operations, use the specific methods.
+
+        Args:
+            command: Full git command as string (e.g., "git tag -a v1.0 -m 'Version 1.0'")
+
+        Returns:
+            Command output as string
+
+        Raises:
+            GitOpsError: If command fails
+        """
+        try:
+            # Split command into parts for subprocess
+            import shlex
+
+            cmd_parts = shlex.split(command)
+
+            # If it starts with 'git', remove it since _run_git_command adds it
+            if cmd_parts and cmd_parts[0] == "git":
+                cmd_parts = cmd_parts[1:]
+
+            return self._run_git_command(cmd_parts)
+
+        except subprocess.CalledProcessError as e:
+            raise GitOpsError(f"Git command failed: {command}\n{e.stderr}")
