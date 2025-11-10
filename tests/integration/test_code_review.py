@@ -1,19 +1,17 @@
 """Integration tests for code review workflow."""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock, patch
 
-from src.cycles.pr_cycle import CodeReviewer, CodeReviewResult
-from src.integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    PRReviewResult,
-    ReviewComment,
-)
-from src.integrations.github_client import GitHubClient
-from src.integrations.git_ops import GitOps
 from src.core.logger import AuditLogger
 from src.core.state import WorkItem
+from src.cycles.pr_cycle import CodeReviewer, CodeReviewResult
+from src.integrations.git_ops import GitOps
+from src.integrations.github_client import GitHubClient
+from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                       PRReviewResult,
+                                                       ReviewComment)
 
 
 class TestCodeReviewIntegration(unittest.TestCase):

@@ -14,17 +14,15 @@ Uses multi-agent consensus to determine:
 """
 
 import re
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentStrategy,
-    MultiAgentResponse,
-)
-from ..cycles.pr_cycle import CICheckStatus, CIStatus
 from ..core.logger import AuditLogger, EventType
+from ..cycles.pr_cycle import CICheckStatus, CIStatus
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse,
+                                                     MultiAgentStrategy)
 
 
 class CIFailureCategory(Enum):

@@ -4,15 +4,15 @@ Handles safe merging of pull requests with comprehensive validation,
 tagging for rollback, and supervisor mode support.
 """
 
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
+from ..core.config import PRManagementConfig, SafetyConfig
+from ..core.logger import AuditLogger, EventType
 from ..integrations.git_ops import GitOps
 from ..integrations.github_client import GitHubClient
-from ..core.logger import AuditLogger, EventType
-from ..core.config import PRManagementConfig, SafetyConfig
 
 
 class MergeValidationError(Exception):

@@ -4,16 +4,14 @@ Uses multiple AI providers to analyze codebase from diverse perspectives
 and build consensus on improvement opportunities.
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentStrategy,
-    MultiAgentResponse,
-)
 from ..core.logger import AuditLogger
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse,
+                                                     MultiAgentStrategy)
 from .codebase_analyzer import CodebaseAnalysis
 
 

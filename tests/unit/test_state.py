@@ -1,13 +1,10 @@
 """Tests for state management."""
 
-import pytest
 from datetime import datetime
 
-from src.core.state import (
-    StateManager,
-    OrchestratorState,
-    WorkItem,
-)
+import pytest
+
+from src.core.state import OrchestratorState, StateManager, WorkItem
 
 
 class TestWorkItem:

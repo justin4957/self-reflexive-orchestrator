@@ -1,11 +1,11 @@
 """Git operations for code execution and branch management."""
 
-import subprocess
 import os
-from typing import List, Optional, Dict, Any
+import subprocess
 from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger, EventType
 

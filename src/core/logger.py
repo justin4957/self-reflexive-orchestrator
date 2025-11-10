@@ -4,9 +4,9 @@ import json
 import logging
 import sys
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Optional
-from enum import Enum
 
 import structlog
 from structlog.processors import JSONRenderer

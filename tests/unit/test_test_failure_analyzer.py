@@ -1,23 +1,18 @@
 """Unit tests for TestFailureAnalyzer."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
 
-from src.analyzers.test_failure_analyzer import (
-    TestFailureAnalyzer,
-    FailureCategory,
-    RootCause,
-    FixSuggestion,
-    FailureAnalysis,
-)
-from src.integrations.test_runner import TestFailure, TestResult, TestFramework
-from src.integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentResponse,
-    MultiAgentStrategy,
-)
+from src.analyzers.test_failure_analyzer import (FailureAnalysis,
+                                                 FailureCategory,
+                                                 FixSuggestion, RootCause,
+                                                 TestFailureAnalyzer)
 from src.core.logger import AuditLogger
+from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                       MultiAgentResponse,
+                                                       MultiAgentStrategy)
+from src.integrations.test_runner import TestFailure, TestFramework, TestResult
 
 
 class TestTestFailureAnalyzer(unittest.TestCase):

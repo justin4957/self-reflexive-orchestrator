@@ -1,29 +1,21 @@
 """Unit tests for RoadmapValidator."""
 
 import unittest
-from unittest.mock import Mock
 from datetime import datetime, timezone
+from unittest.mock import Mock
 
-from src.cycles.roadmap_validator import (
-    RoadmapValidator,
-    ValidationDecision,
-    ValidationCriterion,
-    ProposalValidation,
-    DialecticalValidation,
-    ValidatedRoadmap,
-)
-from src.cycles.multi_agent_ideation import (
-    FeatureProposal,
-    ProposalPriority,
-    SynthesizedRoadmap,
-    IdeationResult,
-)
-from src.integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentResponse,
-    MultiAgentStrategy,
-)
 from src.core.logger import AuditLogger
+from src.cycles.multi_agent_ideation import (FeatureProposal, IdeationResult,
+                                             ProposalPriority,
+                                             SynthesizedRoadmap)
+from src.cycles.roadmap_validator import (DialecticalValidation,
+                                          ProposalValidation, RoadmapValidator,
+                                          ValidatedRoadmap,
+                                          ValidationCriterion,
+                                          ValidationDecision)
+from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                       MultiAgentResponse,
+                                                       MultiAgentStrategy)
 
 
 class TestRoadmapValidator(unittest.TestCase):

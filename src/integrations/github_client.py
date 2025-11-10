@@ -1,12 +1,13 @@
 """GitHub API integration for the orchestrator."""
 
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
 from github import Github, GithubException
-from github.Repository import Repository
+from github.GithubObject import NotSet
 from github.Issue import Issue
 from github.PullRequest import PullRequest
-from github.GithubObject import NotSet
+from github.Repository import Repository
 
 from ..core.logger import AuditLogger
 from ..safety.rate_limiter import RateLimiter

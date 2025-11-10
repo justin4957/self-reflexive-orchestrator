@@ -1,21 +1,16 @@
 """Unit tests for ReviewFeedbackProcessor."""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
 
-from src.cycles.review_processor import (
-    ReviewFeedbackProcessor,
-    FeedbackItem,
-    ReviewProcessingResult,
-)
-from src.integrations.multi_agent_coder_client import (
-    PRReviewResult,
-    ReviewComment,
-)
-from src.integrations.git_ops import GitOps
-from src.core.logger import AuditLogger
 from src.core.config import LLMConfig
+from src.core.logger import AuditLogger
+from src.cycles.review_processor import (FeedbackItem, ReviewFeedbackProcessor,
+                                         ReviewProcessingResult)
+from src.integrations.git_ops import GitOps
+from src.integrations.multi_agent_coder_client import (PRReviewResult,
+                                                       ReviewComment)
 
 
 class TestReviewFeedbackProcessor(unittest.TestCase):

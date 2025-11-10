@@ -4,14 +4,14 @@ Analyzes repository structure, dependencies, code metrics, and patterns
 to provide comprehensive insights for roadmap generation.
 """
 
-import os
-import re
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Set
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import ast
 import json
+import os
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
 
 from ..core.logger import AuditLogger
 

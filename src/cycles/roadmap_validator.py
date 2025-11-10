@@ -9,23 +9,18 @@ This follows the dialectical method to ensure thorough validation
 through multiple AI perspectives.
 """
 
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
-from enum import Enum
 import re
 import time
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from ..cycles.multi_agent_ideation import (
-    FeatureProposal,
-    SynthesizedRoadmap,
-    IdeationResult,
-)
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentStrategy,
-    MultiAgentResponse,
-)
 from ..core.logger import AuditLogger
+from ..cycles.multi_agent_ideation import (FeatureProposal, IdeationResult,
+                                           SynthesizedRoadmap)
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse,
+                                                     MultiAgentStrategy)
 
 
 class ValidationDecision(Enum):

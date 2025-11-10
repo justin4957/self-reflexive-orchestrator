@@ -1,20 +1,15 @@
 """Unit tests for PRMerger."""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock, patch
 
-from src.cycles.pr_merger import (
-    PRMerger,
-    MergeValidation,
-    MergeResult,
-    MergeStrategy,
-    MergeValidationError,
-)
+from src.core.config import PRManagementConfig, SafetyConfig
+from src.core.logger import AuditLogger
+from src.cycles.pr_merger import (MergeResult, MergeStrategy, MergeValidation,
+                                  MergeValidationError, PRMerger)
 from src.integrations.git_ops import GitOps
 from src.integrations.github_client import GitHubClient
-from src.core.logger import AuditLogger
-from src.core.config import PRManagementConfig, SafetyConfig
 
 
 class TestPRMerger(unittest.TestCase):

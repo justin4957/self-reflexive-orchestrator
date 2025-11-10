@@ -8,14 +8,14 @@ Creates comprehensive GitHub issues from validated roadmap proposals with:
 - Appropriate labels and priority
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
+from ..core.logger import AuditLogger
 from ..cycles.multi_agent_ideation import FeatureProposal, ProposalPriority
 from ..cycles.roadmap_validator import ValidatedRoadmap, ValidationDecision
 from ..integrations.github_client import GitHubClient
-from ..core.logger import AuditLogger
 
 
 class IssueCategory(Enum):

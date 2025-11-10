@@ -1,19 +1,15 @@
 """Unit tests for IssueAnalyzer."""
 
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
+
 from github.Issue import Issue
 
-from src.analyzers.issue_analyzer import (
-    IssueAnalyzer,
-    IssueType,
-    IssueAnalysis,
-)
-from src.integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentResponse,
-)
+from src.analyzers.issue_analyzer import (IssueAnalysis, IssueAnalyzer,
+                                          IssueType)
 from src.core.logger import AuditLogger
+from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                       MultiAgentResponse)
 
 
 class TestIssueAnalyzer(unittest.TestCase):

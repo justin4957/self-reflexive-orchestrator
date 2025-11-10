@@ -1,18 +1,19 @@
 """Issue processing cycle components."""
 
 import time
-from typing import List, Optional, Dict, Any
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
-from dataclasses import dataclass, field, asdict
 from enum import Enum
 from threading import Lock
+from typing import Any, Dict, List, Optional
 
-from ..core.logger import AuditLogger, EventType
-from ..core.state import StateManager, WorkItem, OrchestratorState
-from ..core.config import Config
-from ..integrations.github_client import GitHubClient
 from github import GithubException, RateLimitExceededException
 from github.Issue import Issue
+
+from ..core.config import Config
+from ..core.logger import AuditLogger, EventType
+from ..core.state import OrchestratorState, StateManager, WorkItem
+from ..integrations.github_client import GitHubClient
 
 
 class RateLimitStatus(Enum):

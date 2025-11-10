@@ -4,19 +4,17 @@ Uses multiple AI providers to generate diverse feature proposals,
 cross-critique ideas, and build consensus through dialectical synthesis.
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentStrategy,
-    MultiAgentResponse,
-)
 from ..analyzers.codebase_analyzer import CodebaseAnalysis
 from ..analyzers.multi_agent_analyzer import MultiAgentAnalysisResult
 from ..core.logger import AuditLogger
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse,
+                                                     MultiAgentStrategy)
 
 
 class ProposalPriority(Enum):

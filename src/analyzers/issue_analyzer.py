@@ -1,16 +1,15 @@
 """Issue analysis using multi-agent-coder for enhanced intelligence."""
 
 import re
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from github.Issue import Issue
 
 from ..core.logger import AuditLogger, EventType
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentResponse,
-)
-from github.Issue import Issue
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentResponse)
 
 
 class IssueType(Enum):

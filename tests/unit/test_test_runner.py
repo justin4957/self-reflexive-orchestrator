@@ -1,20 +1,15 @@
 """Unit tests for TestRunner."""
 
-import unittest
-from unittest.mock import Mock, MagicMock, patch, call
-from pathlib import Path
 import subprocess
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, call, patch
 
-from src.integrations.test_runner import (
-    TestRunner,
-    TestFramework,
-    TestStatus,
-    TestResult,
-    TestFailure,
-    TestRunnerError,
-    TestFrameworkNotFoundError,
-)
 from src.core.logger import AuditLogger
+from src.integrations.test_runner import (TestFailure, TestFramework,
+                                          TestFrameworkNotFoundError,
+                                          TestResult, TestRunner,
+                                          TestRunnerError, TestStatus)
 
 
 class TestTestRunner(unittest.TestCase):

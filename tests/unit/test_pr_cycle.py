@@ -1,29 +1,20 @@
 """Unit tests for PRCreator and CIMonitor."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock, call, patch
 
-from src.cycles.pr_cycle import (
-    PRCreator,
-    PRDetails,
-    PRCreationResult,
-    CIMonitor,
-    CICheckStatus,
-    CIStatus,
-    CIMonitorResult,
-)
-from src.integrations.git_ops import GitOps
-from src.integrations.github_client import GitHubClient
+from src.analyzers.implementation_planner import (ImplementationPlan,
+                                                  ImplementationStep,
+                                                  PlanConfidence, TestStrategy)
 from src.core.logger import AuditLogger
 from src.core.state import WorkItem
-from src.analyzers.implementation_planner import (
-    ImplementationPlan,
-    ImplementationStep,
-    TestStrategy,
-    PlanConfidence,
-)
-from src.integrations.test_runner import TestResult, TestFramework, TestFailure
+from src.cycles.pr_cycle import (CICheckStatus, CIMonitor, CIMonitorResult,
+                                 CIStatus, PRCreationResult, PRCreator,
+                                 PRDetails)
+from src.integrations.git_ops import GitOps
+from src.integrations.github_client import GitHubClient
+from src.integrations.test_runner import TestFailure, TestFramework, TestResult
 
 
 class TestPRCreator(unittest.TestCase):
