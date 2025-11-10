@@ -993,6 +993,247 @@ def list_rollback_points(ctx):
         sys.exit(1)
 
 
+@cli.command("health")
+@click.option(
+    "--json-output",
+    is_flag=True,
+    help="Output health report as JSON",
+)
+@click.pass_context
+def health(ctx, json_output: bool):
+    """Check orchestrator health status.
+
+    Performs comprehensive health checks including:
+    - System resources (memory, disk, CPU)
+    - API connectivity (GitHub, Anthropic)
+    - Integration availability (git, multi-agent-coder)
+    """
+    try:
+        from .core.health import HealthChecker, HealthStatus
+        from .core.logger import setup_logging
+        from .core.config import ConfigManager
+        from .integrations.github_client import GitHubClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
+
+        # Load configuration
+        config_manager = ConfigManager(ctx.obj.get("config_path"))
+        config = config_manager.load_config()
+        logger = setup_logging()
+
+        # Initialize clients for API checks
+        github_client = None
+        try:
+            github_client = GitHubClient(
+                token=config.github.token,
+                repository=config.github.repository,
+                logger=logger,
+            )
+        except Exception as e:
+            if not json_output:
+                console.print(
+                    f"[yellow]Warning: Could not initialize GitHub client: {e}[/yellow]"
+                )
+
+        # Initialize health checker
+        health_checker = HealthChecker(
+            logger=logger,
+            github_client=github_client,
+            multi_agent_coder_path=config.multi_agent_coder.executable_path,
+        )
+
+        # Perform health check
+        if not json_output:
+            console.print(Panel.fit("🏥 Health Check", style="bold blue"))
+            console.print()
+
+        report = health_checker.check_health()
+
+        if json_output:
+            # Output as JSON
+            import json
+
+            print(json.dumps(report.to_dict(), indent=2))
+        else:
+            # Display formatted output
+            # Overall status
+            status_colors = {
+                HealthStatus.HEALTHY: "green",
+                HealthStatus.DEGRADED: "yellow",
+                HealthStatus.UNHEALTHY: "red",
+                HealthStatus.UNKNOWN: "white",
+            }
+            status_color = status_colors.get(report.overall_status, "white")
+
+            console.print(
+                f"[bold {status_color}]{report.summary}[/bold {status_color}]"
+            )
+            console.print()
+
+            # Checks table
+            table = Table(title="Health Checks", show_header=True)
+            table.add_column("Check", style="cyan")
+            table.add_column("Status")
+            table.add_column("Message")
+            table.add_column("Duration", justify="right")
+
+            for check in report.checks:
+                status_symbol = {
+                    HealthStatus.HEALTHY: "[green]✓[/green]",
+                    HealthStatus.DEGRADED: "[yellow]⚠[/yellow]",
+                    HealthStatus.UNHEALTHY: "[red]✗[/red]",
+                    HealthStatus.UNKNOWN: "[white]?[/white]",
+                }
+                symbol = status_symbol.get(check.status, "?")
+
+                status_text = f"{symbol} {check.status.value}"
+
+                table.add_row(
+                    check.name,
+                    status_text,
+                    check.message,
+                    f"{check.duration_ms:.1f}ms",
+                )
+
+            console.print(table)
+
+            # Details for unhealthy/degraded checks
+            problem_checks = [
+                c
+                for c in report.checks
+                if c.status in [HealthStatus.UNHEALTHY, HealthStatus.DEGRADED]
+            ]
+
+            if problem_checks:
+                console.print("\n[bold]Issues Detected:[/bold]")
+                for check in problem_checks:
+                    console.print(f"\n[yellow]• {check.name}:[/yellow]")
+                    console.print(f"  {check.message}")
+                    if check.details:
+                        for key, value in check.details.items():
+                            if key != "error":
+                                console.print(f"  {key}: {value}")
+
+        # Exit with appropriate code
+        if report.overall_status == HealthStatus.UNHEALTHY:
+            sys.exit(1)
+        elif report.overall_status == HealthStatus.DEGRADED:
+            sys.exit(2)
+        else:
+            sys.exit(0)
+
+    except Exception as e:
+        console.print(f"[red]✗ Health check failed: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(3)
+
+
+@cli.command("metrics")
+@click.option(
+    "--json-output",
+    is_flag=True,
+    help="Output metrics as JSON",
+)
+@click.option(
+    "--time-window",
+    type=int,
+    help="Time window in hours (default: all time)",
+)
+@click.pass_context
+def metrics(ctx, json_output: bool, time_window: Optional[int]):
+    """Display orchestrator metrics.
+
+    Shows operational metrics including:
+    - Work items processed
+    - Success/failure rates
+    - API call counts
+    - Error statistics
+    - Response times
+    - Cost tracking
+    """
+    try:
+        from .core.metrics import MetricsCollector
+
+        console.print(Panel.fit("📊 Orchestrator Metrics", style="bold blue"))
+        console.print()
+
+        # For now, create a sample collector
+        # In production, this would load from persistent storage
+        collector = MetricsCollector()
+
+        summary = collector.get_summary(time_window_hours=time_window)
+
+        if json_output:
+            # Output as JSON
+            import json
+
+            print(json.dumps(summary.to_dict(), indent=2))
+        else:
+            # Display formatted output
+            console.print("[bold]Work Items:[/bold]")
+            work_table = Table(show_header=False)
+            work_table.add_column("Metric", style="cyan")
+            work_table.add_column("Value")
+
+            work_table.add_row("Processed", str(summary.work_items_processed))
+            work_table.add_row(
+                "Succeeded", f"[green]{summary.work_items_succeeded}[/green]"
+            )
+            work_table.add_row("Failed", f"[red]{summary.work_items_failed}[/red]")
+            work_table.add_row("Success Rate", f"{summary.success_rate * 100:.1f}%")
+
+            console.print(work_table)
+            console.print()
+
+            # API Calls
+            console.print("[bold]API Calls:[/bold]")
+            api_table = Table(show_header=False)
+            api_table.add_column("Provider", style="cyan")
+            api_table.add_column("Calls", justify="right")
+
+            api_table.add_row("Total", str(summary.api_calls_total))
+            for provider, count in summary.api_calls_by_provider.items():
+                api_table.add_row(f"  {provider}", str(count))
+
+            console.print(api_table)
+            console.print()
+
+            # Errors
+            if summary.errors_total > 0:
+                console.print("[bold]Errors:[/bold]")
+                error_table = Table(show_header=False)
+                error_table.add_column("Type", style="cyan")
+                error_table.add_column("Count", justify="right")
+
+                error_table.add_row("Total", f"[red]{summary.errors_total}[/red]")
+                for error_type, count in summary.errors_by_type.items():
+                    error_table.add_row(f"  {error_type}", str(count))
+
+                console.print(error_table)
+                console.print()
+
+            # Performance
+            console.print("[bold]Performance:[/bold]")
+            perf_table = Table(show_header=False)
+            perf_table.add_column("Metric", style="cyan")
+            perf_table.add_column("Value")
+
+            perf_table.add_row(
+                "Avg Response Time", f"{summary.avg_response_time_ms:.1f}ms"
+            )
+            perf_table.add_row("Total Cost", f"${summary.total_cost:.4f}")
+
+            console.print(perf_table)
+
+    except Exception as e:
+        console.print(f"[red]✗ Metrics error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     cli(obj={})
