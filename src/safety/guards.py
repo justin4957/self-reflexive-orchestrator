@@ -8,11 +8,11 @@ Implements operation detection and classification for:
 - Protected file access
 """
 
-from typing import List, Optional, Dict, Any, Set
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-import re
+from typing import Any, Dict, List, Optional, Set
 
 from ..core.logger import AuditLogger
 

@@ -353,8 +353,7 @@ def generate_roadmap(ctx, force: bool, goals: tuple):
         from .core.logger import setup_logging
         from .cycles.roadmap_cycle import RoadmapCycle
         from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import \
-            MultiAgentCoderClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
         config = config_manager.load_config()
@@ -457,8 +456,7 @@ def roadmap_status(ctx):
         from .core.logger import setup_logging
         from .cycles.roadmap_cycle import RoadmapCycle
         from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import \
-            MultiAgentCoderClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
         config = config_manager.load_config()
@@ -531,8 +529,7 @@ def show_roadmap(ctx):
         from .core.logger import setup_logging
         from .cycles.roadmap_cycle import RoadmapCycle
         from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import \
-            MultiAgentCoderClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
         config = config_manager.load_config()
@@ -1016,8 +1013,7 @@ def health(ctx, json_output: bool):
         from .core.health import HealthChecker, HealthStatus
         from .core.logger import setup_logging
         from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import \
-            MultiAgentCoderClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
 
         # Load configuration
         config_manager = ConfigManager(ctx.obj.get("config_path"))

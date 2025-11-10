@@ -6,10 +6,15 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 from src.core.logger import AuditLogger
-from src.integrations.test_runner import (TestFailure, TestFramework,
-                                          TestFrameworkNotFoundError,
-                                          TestResult, TestRunner,
-                                          TestRunnerError, TestStatus)
+from src.integrations.test_runner import (
+    TestFailure,
+    TestFramework,
+    TestFrameworkNotFoundError,
+    TestResult,
+    TestRunner,
+    TestRunnerError,
+    TestStatus,
+)
 
 
 class TestTestRunner(unittest.TestCase):

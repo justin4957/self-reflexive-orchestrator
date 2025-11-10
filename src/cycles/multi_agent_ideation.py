@@ -12,9 +12,11 @@ from typing import Any, Dict, List, Optional
 from ..analyzers.codebase_analyzer import CodebaseAnalysis
 from ..analyzers.multi_agent_analyzer import MultiAgentAnalysisResult
 from ..core.logger import AuditLogger
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentResponse,
-                                                     MultiAgentStrategy)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 
 
 class ProposalPriority(Enum):

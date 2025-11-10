@@ -3,13 +3,8 @@
 import unittest
 from unittest.mock import Mock
 
-from src.safety.guards import (
-    OperationGuard,
-    Operation,
-    OperationType,
-    RiskLevel,
-)
 from src.core.logger import AuditLogger
+from src.safety.guards import Operation, OperationGuard, OperationType, RiskLevel
 
 
 class TestOperationGuard(unittest.TestCase):

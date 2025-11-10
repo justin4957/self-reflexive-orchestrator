@@ -1,13 +1,13 @@
 """Safety Guard Manager - coordinates all safety mechanisms."""
 
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger
 from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
-from .guards import OperationGuard, Operation, RiskLevel, GuardDecision
+from .breaking_change_detector import BreakingChangeAnalysis, BreakingChangeDetector
+from .guards import GuardDecision, Operation, OperationGuard, RiskLevel
 from .multi_agent_risk_assessor import MultiAgentRiskAssessor, RiskAssessment
-from .breaking_change_detector import BreakingChangeDetector, BreakingChangeAnalysis
 
 
 @dataclass

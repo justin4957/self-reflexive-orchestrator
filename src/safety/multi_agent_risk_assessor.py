@@ -4,17 +4,17 @@ Uses multi-agent-coder to get comprehensive risk analysis from multiple
 AI providers, building consensus on operation safety.
 """
 
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
+from ..core.logger import AuditLogger
 from ..integrations.multi_agent_coder_client import (
     MultiAgentCoderClient,
-    MultiAgentStrategy,
     MultiAgentResponse,
+    MultiAgentStrategy,
 )
-from ..core.logger import AuditLogger
-from .guards import Operation, RiskLevel, GuardDecision
+from .guards import GuardDecision, Operation, RiskLevel
 
 
 @dataclass

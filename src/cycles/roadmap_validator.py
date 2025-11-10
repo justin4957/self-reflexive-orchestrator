@@ -16,11 +16,16 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger
-from ..cycles.multi_agent_ideation import (FeatureProposal, IdeationResult,
-                                           SynthesizedRoadmap)
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentResponse,
-                                                     MultiAgentStrategy)
+from ..cycles.multi_agent_ideation import (
+    FeatureProposal,
+    IdeationResult,
+    SynthesizedRoadmap,
+)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 
 
 class ValidationDecision(Enum):

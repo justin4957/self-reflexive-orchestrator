@@ -1,15 +1,15 @@
 """Unit tests for multi-agent risk assessment."""
 
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
 
-from src.safety.multi_agent_risk_assessor import MultiAgentRiskAssessor, RiskAssessment
-from src.safety.guards import Operation, OperationType, RiskLevel
+from src.core.logger import AuditLogger
 from src.integrations.multi_agent_coder_client import (
     MultiAgentCoderClient,
     MultiAgentResponse,
 )
-from src.core.logger import AuditLogger
+from src.safety.guards import Operation, OperationType, RiskLevel
+from src.safety.multi_agent_risk_assessor import MultiAgentRiskAssessor, RiskAssessment
 
 
 class TestMultiAgentRiskAssessor(unittest.TestCase):

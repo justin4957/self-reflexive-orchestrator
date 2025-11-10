@@ -10,15 +10,12 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from ..analyzers.implementation_planner import (ImplementationPlan,
-                                                ImplementationPlanner)
+from ..analyzers.implementation_planner import ImplementationPlan, ImplementationPlanner
 from ..analyzers.issue_analyzer import IssueAnalysis, IssueAnalyzer
-from ..analyzers.test_failure_analyzer import (FailureAnalysis,
-                                               TestFailureAnalyzer)
+from ..analyzers.test_failure_analyzer import FailureAnalysis, TestFailureAnalyzer
 from ..core.logger import AuditLogger, EventType
 from ..core.state import StateManager, WorkItem
-from ..cycles.code_executor import (CodeExecutor, ExecutionResult,
-                                    ExecutionStatus)
+from ..cycles.code_executor import CodeExecutor, ExecutionResult, ExecutionStatus
 from ..cycles.pr_cycle import PRCreationResult, PRCreator
 from ..integrations.github_client import GitHubClient
 from ..integrations.test_runner import TestResult, TestRunner

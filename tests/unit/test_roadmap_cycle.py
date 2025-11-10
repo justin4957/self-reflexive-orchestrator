@@ -1,21 +1,18 @@
 """Unit tests for RoadmapCycle."""
 
 import unittest
-from unittest.mock import Mock, MagicMock
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import MagicMock, Mock
 
+from src.core.logger import AuditLogger
+from src.cycles.issue_creator import IssueCreationResult
+from src.cycles.multi_agent_ideation import IdeationResult, SynthesizedRoadmap
 from src.cycles.roadmap_cycle import RoadmapCycle, RoadmapCycleResult
 from src.cycles.roadmap_generator import GeneratedRoadmap, RoadmapMetadata
-from src.cycles.roadmap_validator import ValidatedRoadmap, DialecticalValidation
-from src.cycles.issue_creator import IssueCreationResult
-from src.cycles.multi_agent_ideation import (
-    IdeationResult,
-    SynthesizedRoadmap,
-)
+from src.cycles.roadmap_validator import DialecticalValidation, ValidatedRoadmap
 from src.integrations.github_client import GitHubClient
 from src.integrations.multi_agent_coder_client import MultiAgentCoderClient
-from src.core.logger import AuditLogger
 
 
 class TestRoadmapCycle(unittest.TestCase):

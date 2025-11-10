@@ -7,18 +7,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from src.analyzers.codebase_analyzer import (CodebaseAnalysis, CodebaseMetrics,
-                                             DependencyInfo)
-from src.analyzers.multi_agent_analyzer import (ConsensusInsights,
-                                                MultiAgentAnalysisResult,
-                                                ProviderInsight)
+from src.analyzers.codebase_analyzer import (
+    CodebaseAnalysis,
+    CodebaseMetrics,
+    DependencyInfo,
+)
+from src.analyzers.multi_agent_analyzer import (
+    ConsensusInsights,
+    MultiAgentAnalysisResult,
+    ProviderInsight,
+)
 from src.core.logger import AuditLogger
-from src.cycles.multi_agent_ideation import (FeatureProposal, IdeationResult,
-                                             ProposalCritique,
-                                             ProposalPriority,
-                                             SynthesizedRoadmap)
-from src.cycles.roadmap_generator import (GeneratedRoadmap, RoadmapGenerator,
-                                          RoadmapMetadata)
+from src.cycles.multi_agent_ideation import (
+    FeatureProposal,
+    IdeationResult,
+    ProposalCritique,
+    ProposalPriority,
+    SynthesizedRoadmap,
+)
+from src.cycles.roadmap_generator import (
+    GeneratedRoadmap,
+    RoadmapGenerator,
+    RoadmapMetadata,
+)
 from src.integrations.multi_agent_coder_client import MultiAgentCoderClient
 
 

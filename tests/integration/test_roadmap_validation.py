@@ -8,12 +8,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.core.logger import setup_logging
-from src.cycles.multi_agent_ideation import (FeatureProposal, IdeationResult,
-                                             ProposalPriority,
-                                             SynthesizedRoadmap)
+from src.cycles.multi_agent_ideation import (
+    FeatureProposal,
+    IdeationResult,
+    ProposalPriority,
+    SynthesizedRoadmap,
+)
 from src.cycles.roadmap_validator import RoadmapValidator
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentStrategy)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentStrategy,
+)
 
 
 def test_validate_roadmap():
