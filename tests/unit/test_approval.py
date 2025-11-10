@@ -1,370 +1,491 @@
-"""Unit tests for ApprovalManager."""
+"""Unit tests for approval system."""
 
+import asyncio
 import unittest
-from unittest.mock import Mock, patch
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from src.safety.approval import (
-    ApprovalManager,
-    ApprovalRequest,
-    ApprovalStatus,
-)
 from src.core.logger import AuditLogger
+from src.safety.approval import (ApprovalDecision, ApprovalRequest,
+                                 ApprovalSystem, RiskLevel)
 
 
-class TestApprovalManager(unittest.TestCase):
-    """Test cases for ApprovalManager."""
+class TestApprovalRequest(unittest.TestCase):
+    """Test cases for ApprovalRequest."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        self.logger = Mock(spec=AuditLogger)
-        self.notification_callback = Mock()
-
-        self.manager = ApprovalManager(
-            logger=self.logger,
-            notification_callback=self.notification_callback,
-            approval_timeout=3600,
-        )
-
-    def test_initialization(self):
-        """Test manager initialization."""
-        self.assertEqual(self.manager.approval_timeout, 3600)
-        self.assertEqual(len(self.manager.pending_approvals), 0)
-        self.assertEqual(len(self.manager.approval_history), 0)
-        self.assertEqual(self.manager.total_requests, 0)
-        self.assertEqual(self.manager.total_approved, 0)
-        self.assertEqual(self.manager.total_denied, 0)
-
-    def test_request_approval(self):
-        """Test creating an approval request."""
-        request = self.manager.request_approval(
-            action="merge PR #123",
-            reason="PR requires manual review",
-            resource_type="pr",
-            resource_id="123",
-            metadata={"pr_title": "Test PR"},
-        )
-
-        self.assertIsInstance(request, ApprovalRequest)
-        self.assertEqual(request.action, "merge PR #123")
-        self.assertEqual(request.reason, "PR requires manual review")
-        self.assertEqual(request.status, ApprovalStatus.PENDING)
-        self.assertEqual(len(self.manager.pending_approvals), 1)
-        self.assertEqual(self.manager.total_requests, 1)
-
-        # Check notification callback was called
-        self.notification_callback.assert_called_once_with(request)
-
-        # Check audit log was called
-        self.logger.human_approval_requested.assert_called_once()
-
-    def test_approve_request(self):
-        """Test approving a pending request."""
-        # Create request
-        request = self.manager.request_approval(
-            action="merge PR #123",
-            reason="Manual review",
-            resource_type="pr",
-            resource_id="123",
-        )
-
-        request_id = request.request_id
-
-        # Approve it
-        approved_request = self.manager.approve(
-            request_id=request_id,
-            approver="user@example.com",
-            note="LGTM",
-        )
-
-        self.assertEqual(approved_request.status, ApprovalStatus.APPROVED)
-        self.assertEqual(approved_request.approver, "user@example.com")
-        self.assertEqual(approved_request.response_note, "LGTM")
-        self.assertIsNotNone(approved_request.responded_at)
-
-        # Should be moved to history
-        self.assertEqual(len(self.manager.pending_approvals), 0)
-        self.assertEqual(len(self.manager.approval_history), 1)
-        self.assertEqual(self.manager.total_approved, 1)
-
-        # Check audit log
-        self.logger.audit.assert_called()
-
-    def test_approve_nonexistent_request(self):
-        """Test approving a request that doesn't exist."""
-        with self.assertRaises(ValueError) as context:
-            self.manager.approve(
-                request_id="nonexistent",
-                approver="user@example.com",
-            )
-
-        self.assertIn("not found", str(context.exception))
-
-    def test_approve_non_pending_request(self):
-        """Test approving a request that's not pending."""
-        # Create and approve a request
-        request = self.manager.request_approval(
-            action="test",
-            reason="test",
-            resource_type="test",
-            resource_id="1",
-        )
-
-        request_id = request.request_id
-        self.manager.approve(request_id, "user@example.com")
-
-        # Try to approve again - should fail because it's no longer in pending
-        with self.assertRaises(ValueError) as context:
-            self.manager.approve(request_id, "user@example.com")
-
-        # Request is moved to history, so error is "not found" in pending
-        self.assertIn("not found", str(context.exception))
-
-    def test_deny_request(self):
-        """Test denying a pending request."""
-        # Create request
-        request = self.manager.request_approval(
-            action="deploy to production",
-            reason="High risk deployment",
-            resource_type="deployment",
-            resource_id="prod-123",
-        )
-
-        request_id = request.request_id
-
-        # Deny it
-        denied_request = self.manager.deny(
-            request_id=request_id,
-            approver="admin@example.com",
-            reason="Need more testing",
-        )
-
-        self.assertEqual(denied_request.status, ApprovalStatus.DENIED)
-        self.assertEqual(denied_request.approver, "admin@example.com")
-        self.assertEqual(denied_request.response_note, "Need more testing")
-        self.assertIsNotNone(denied_request.responded_at)
-
-        # Should be moved to history
-        self.assertEqual(len(self.manager.pending_approvals), 0)
-        self.assertEqual(len(self.manager.approval_history), 1)
-        self.assertEqual(self.manager.total_denied, 1)
-
-    def test_cancel_request(self):
-        """Test cancelling a pending request."""
-        # Create request
-        request = self.manager.request_approval(
-            action="test action",
-            reason="test reason",
-            resource_type="test",
-            resource_id="1",
-        )
-
-        request_id = request.request_id
-
-        # Cancel it
-        cancelled_request = self.manager.cancel(
-            request_id=request_id,
-            reason="No longer needed",
-        )
-
-        self.assertEqual(cancelled_request.status, ApprovalStatus.CANCELLED)
-        self.assertEqual(cancelled_request.response_note, "No longer needed")
-        self.assertIsNotNone(cancelled_request.responded_at)
-
-        # Should be moved to history
-        self.assertEqual(len(self.manager.pending_approvals), 0)
-        self.assertEqual(len(self.manager.approval_history), 1)
-
-    def test_expire_old_requests(self):
-        """Test expiring old pending requests."""
-        # Create a request
-        request = self.manager.request_approval(
-            action="test action",
-            reason="test reason",
-            resource_type="test",
-            resource_id="1",
-        )
-
-        # Manually set requested_at to be old (more than timeout)
-        old_time = datetime.now(timezone.utc) - timedelta(seconds=3601)
-        request.requested_at = old_time
-        self.manager.pending_approvals[request.request_id] = request
-
-        # Expire old requests
-        expired = self.manager.expire_old_requests()
-
-        self.assertEqual(len(expired), 1)
-        self.assertEqual(expired[0].status, ApprovalStatus.EXPIRED)
-        self.assertEqual(len(self.manager.pending_approvals), 0)
-        self.assertEqual(len(self.manager.approval_history), 1)
-        self.assertEqual(self.manager.total_expired, 1)
-
-    def test_expire_old_requests_none_expired(self):
-        """Test expiring when no requests are old."""
-        # Create a recent request
-        request = self.manager.request_approval(
-            action="test action",
-            reason="test reason",
-            resource_type="test",
-            resource_id="1",
-        )
-
-        # Expire old requests
-        expired = self.manager.expire_old_requests()
-
-        # Nothing should expire
-        self.assertEqual(len(expired), 0)
-        self.assertEqual(len(self.manager.pending_approvals), 1)
-
-    def test_get_pending_requests(self):
-        """Test getting all pending requests."""
-        # Create multiple requests
-        request1 = self.manager.request_approval(
-            action="action 1",
-            reason="reason 1",
-            resource_type="pr",
-            resource_id="1",
-        )
-
-        request2 = self.manager.request_approval(
-            action="action 2",
-            reason="reason 2",
-            resource_type="pr",
-            resource_id="2",
-        )
-
-        pending = self.manager.get_pending_requests()
-
-        self.assertEqual(len(pending), 2)
-        self.assertIn(request1, pending)
-        self.assertIn(request2, pending)
-
-    def test_get_request_pending(self):
-        """Test getting a specific pending request."""
-        request = self.manager.request_approval(
-            action="test action",
-            reason="test reason",
-            resource_type="test",
-            resource_id="1",
-        )
-
-        found = self.manager.get_request(request.request_id)
-
-        self.assertIsNotNone(found)
-        self.assertEqual(found.request_id, request.request_id)
-
-    def test_get_request_from_history(self):
-        """Test getting a request from history."""
-        request = self.manager.request_approval(
-            action="test action",
-            reason="test reason",
-            resource_type="test",
-            resource_id="1",
-        )
-
-        request_id = request.request_id
-        self.manager.approve(request_id, "user@example.com")
-
-        # Request should now be in history
-        found = self.manager.get_request(request_id)
-
-        self.assertIsNotNone(found)
-        self.assertEqual(found.request_id, request_id)
-        self.assertEqual(found.status, ApprovalStatus.APPROVED)
-
-    def test_get_request_not_found(self):
-        """Test getting a nonexistent request."""
-        found = self.manager.get_request("nonexistent")
-
-        self.assertIsNone(found)
-
-    def test_get_statistics(self):
-        """Test getting statistics."""
-        # Create and process several requests
-        request1 = self.manager.request_approval("action1", "reason1", "pr", "1")
-        request2 = self.manager.request_approval("action2", "reason2", "pr", "2")
-        request3 = self.manager.request_approval("action3", "reason3", "pr", "3")
-
-        self.manager.approve(request1.request_id, "user1")
-        self.manager.approve(request2.request_id, "user2")
-        self.manager.deny(request3.request_id, "user3")
-
-        stats = self.manager.get_statistics()
-
-        self.assertEqual(stats["total_requests"], 3)
-        self.assertEqual(stats["total_approved"], 2)
-        self.assertEqual(stats["total_denied"], 1)
-        self.assertEqual(stats["total_expired"], 0)
-        self.assertEqual(stats["pending_count"], 0)
-        self.assertEqual(stats["approval_rate"], 2 / 3)
-
-    def test_get_statistics_no_requests(self):
-        """Test statistics when no requests have been made."""
-        stats = self.manager.get_statistics()
-
-        self.assertEqual(stats["total_requests"], 0)
-        self.assertEqual(stats["approval_rate"], 0.0)
-
-    def test_reset_statistics(self):
-        """Test resetting statistics."""
-        # Create some requests
-        request = self.manager.request_approval("action", "reason", "pr", "1")
-        self.manager.approve(request.request_id, "user")
-
-        # Reset
-        self.manager.reset_statistics()
-
-        self.assertEqual(self.manager.total_requests, 0)
-        self.assertEqual(self.manager.total_approved, 0)
-        self.assertEqual(self.manager.total_denied, 0)
-        self.assertEqual(self.manager.total_expired, 0)
-
-    def test_notification_callback_failure(self):
-        """Test handling notification callback failure."""
-        # Create manager with failing callback
-        failing_callback = Mock(side_effect=Exception("Notification failed"))
-        manager = ApprovalManager(
-            logger=self.logger,
-            notification_callback=failing_callback,
-        )
-
-        # Should not raise exception
-        request = manager.request_approval(
-            action="test",
-            reason="test",
-            resource_type="test",
-            resource_id="1",
-        )
-
-        # Request should still be created
-        self.assertIsNotNone(request)
-        self.assertEqual(len(manager.pending_approvals), 1)
-
-        # Error should be logged
-        self.logger.error.assert_called_once()
-
-    def test_approval_request_dataclass(self):
-        """Test ApprovalRequest dataclass."""
+    def test_to_dict(self):
+        """Test ApprovalRequest to_dict conversion."""
         request = ApprovalRequest(
-            request_id="test-123",
-            action="test action",
-            reason="test reason",
-            resource_type="pr",
-            resource_id="456",
-            status=ApprovalStatus.APPROVED,
-            approver="user@example.com",
-            response_note="Looks good",
-            metadata={"key": "value"},
+            operation="merge_to_main",
+            risk_level=RiskLevel.CRITICAL,
+            concerns=["Affects production"],
+            context={"pr_number": 123},
+            timeout_hours=24.0,
         )
 
         request_dict = request.to_dict()
 
-        self.assertEqual(request_dict["request_id"], "test-123")
-        self.assertEqual(request_dict["action"], "test action")
-        self.assertEqual(request_dict["status"], "approved")
-        self.assertEqual(request_dict["approver"], "user@example.com")
-        self.assertEqual(request_dict["response_note"], "Looks good")
-        self.assertEqual(request_dict["metadata"]["key"], "value")
+        self.assertEqual(request_dict["operation"], "merge_to_main")
+        self.assertEqual(request_dict["risk_level"], "critical")
+        self.assertEqual(request_dict["concerns"], ["Affects production"])
+        self.assertEqual(request_dict["context"], {"pr_number": 123})
+        self.assertEqual(request_dict["timeout_hours"], 24.0)
+
+    def test_request_id_generation(self):
+        """Test automatic request ID generation."""
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+        )
+
+        self.assertTrue(request.request_id.startswith("approval-test_op-"))
+
+    def test_timeout_at(self):
+        """Test timeout_at property."""
+        now = datetime.now(timezone.utc)
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+            timeout_hours=2.0,
+            created_at=now,
+        )
+
+        expected_timeout = now + timedelta(hours=2.0)
+        self.assertAlmostEqual(
+            request.timeout_at.timestamp(),
+            expected_timeout.timestamp(),
+            delta=1.0,
+        )
+
+    def test_is_expired_false(self):
+        """Test is_expired when not expired."""
+        now = datetime.now(timezone.utc)
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+            timeout_hours=24.0,
+            created_at=now,
+        )
+
+        self.assertFalse(request.is_expired)
+
+    def test_is_expired_true(self):
+        """Test is_expired when expired."""
+        past = datetime.now(timezone.utc) - timedelta(hours=25)
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+            timeout_hours=24.0,
+            created_at=past,
+        )
+
+        self.assertTrue(request.is_expired)
+
+    def test_time_remaining_hours(self):
+        """Test time_remaining_hours calculation."""
+        now = datetime.now(timezone.utc)
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+            timeout_hours=10.0,
+            created_at=now,
+        )
+
+        # Should be close to 10 hours
+        self.assertAlmostEqual(request.time_remaining_hours, 10.0, delta=0.1)
+
+
+class TestApprovalDecision(unittest.TestCase):
+    """Test cases for ApprovalDecision."""
+
+    def test_to_dict(self):
+        """Test ApprovalDecision to_dict conversion."""
+        decision = ApprovalDecision(
+            approved=True,
+            auto_approved=False,
+            risk_level=RiskLevel.HIGH,
+            rationale="Manual review approved",
+            decided_by="admin",
+            request_id="test-123",
+        )
+
+        decision_dict = decision.to_dict()
+
+        self.assertTrue(decision_dict["approved"])
+        self.assertFalse(decision_dict["auto_approved"])
+        self.assertEqual(decision_dict["risk_level"], "high")
+        self.assertEqual(decision_dict["rationale"], "Manual review approved")
+        self.assertEqual(decision_dict["decided_by"], "admin")
+
+
+class TestApprovalSystem(unittest.IsolatedAsyncioTestCase):
+    """Test cases for ApprovalSystem."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.logger = Mock(spec=AuditLogger)
+        self.system = ApprovalSystem(
+            logger=self.logger,
+            auto_approve_low_risk=False,
+            default_timeout_hours=24.0,
+        )
+
+    def test_initialization(self):
+        """Test approval system initialization."""
+        self.assertIsNotNone(self.system.logger)
+        self.assertEqual(self.system.default_timeout_hours, 24.0)
+        self.assertFalse(self.system.auto_approve_low_risk)
+
+    def test_assess_risk_basic_critical(self):
+        """Test basic risk assessment for critical operations."""
+        risk_level, concerns = self.system._assess_risk_basic(
+            "merge_to_main", {"pr_number": 123}
+        )
+
+        self.assertEqual(risk_level, RiskLevel.CRITICAL)
+        self.assertIn("affects production", concerns[0].lower())
+
+    def test_assess_risk_basic_high(self):
+        """Test basic risk assessment for high risk operations."""
+        risk_level, concerns = self.system._assess_risk_basic(
+            "breaking_change", {"description": "API change"}
+        )
+
+        self.assertEqual(risk_level, RiskLevel.HIGH)
+        self.assertIn("impact", concerns[0].lower())
+
+    def test_assess_risk_basic_medium(self):
+        """Test basic risk assessment for medium risk operations."""
+        risk_level, concerns = self.system._assess_risk_basic(
+            "configuration_change", {"file": "config.yaml"}
+        )
+
+        self.assertEqual(risk_level, RiskLevel.MEDIUM)
+
+    def test_assess_risk_basic_low(self):
+        """Test basic risk assessment for low risk operations."""
+        risk_level, concerns = self.system._assess_risk_basic(
+            "documentation_update", {}
+        )
+
+        self.assertEqual(risk_level, RiskLevel.LOW)
+
+    def test_assess_risk_escalation_multiple_components(self):
+        """Test risk escalation for multiple components."""
+        risk_level, concerns = self.system._assess_risk_basic(
+            "documentation_update", {"affects_multiple_components": True}
+        )
+
+        self.assertEqual(risk_level, RiskLevel.MEDIUM)
+        self.assertTrue(any("multiple components" in c.lower() for c in concerns))
+
+    def test_assess_risk_escalation_no_tests(self):
+        """Test risk escalation when no tests available."""
+        risk_level, concerns = self.system._assess_risk_basic(
+            "configuration_change", {"no_tests_available": True}
+        )
+
+        self.assertEqual(risk_level, RiskLevel.HIGH)
+        self.assertTrue(any("no automated tests" in c.lower() for c in concerns))
+
+    def test_escalate_risk(self):
+        """Test risk escalation logic."""
+        self.assertEqual(self.system._escalate_risk(RiskLevel.LOW), RiskLevel.MEDIUM)
+        self.assertEqual(self.system._escalate_risk(RiskLevel.MEDIUM), RiskLevel.HIGH)
+        self.assertEqual(self.system._escalate_risk(RiskLevel.HIGH), RiskLevel.CRITICAL)
+        self.assertEqual(
+            self.system._escalate_risk(RiskLevel.CRITICAL), RiskLevel.CRITICAL
+        )
+
+    async def test_request_approval_auto_approve_low_risk(self):
+        """Test auto-approval of low risk operations."""
+        system = ApprovalSystem(
+            logger=self.logger,
+            auto_approve_low_risk=True,
+        )
+
+        decision = await system.request_approval(
+            operation="documentation_update",
+            context={},
+            use_multi_agent_assessment=False,
+        )
+
+        self.assertTrue(decision.approved)
+        self.assertTrue(decision.auto_approved)
+        self.assertEqual(decision.risk_level, RiskLevel.LOW)
+        self.assertEqual(decision.decided_by, "system")
+
+    async def test_request_approval_timeout(self):
+        """Test approval request timeout."""
+        # Use very short timeout for testing
+        decision = await self.system.request_approval(
+            operation="test_operation",
+            context={},
+            timeout_hours=0.0001,  # ~0.36 seconds
+            use_multi_agent_assessment=False,
+        )
+
+        self.assertFalse(decision.approved)
+        self.assertFalse(decision.auto_approved)
+        self.assertIn("timed out", decision.rationale.lower())
+        self.assertEqual(decision.decided_by, "system")
+
+    def test_approve_success(self):
+        """Test successful approval."""
+        # Create a pending request
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.MEDIUM,
+            concerns=["Test concern"],
+        )
+        self.system.pending_approvals[request.request_id] = request
+
+        # Approve it
+        success = self.system.approve(
+            request_id=request.request_id,
+            decided_by="admin",
+            rationale="Approved for testing",
+        )
+
+        self.assertTrue(success)
+
+    def test_approve_not_found(self):
+        """Test approval of non-existent request."""
+        success = self.system.approve(
+            request_id="nonexistent",
+            decided_by="admin",
+            rationale="Should fail",
+        )
+
+        self.assertFalse(success)
+
+    def test_approve_expired(self):
+        """Test approval of expired request."""
+        # Create expired request
+        past = datetime.now(timezone.utc) - timedelta(hours=25)
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.MEDIUM,
+            concerns=[],
+            timeout_hours=24.0,
+            created_at=past,
+        )
+        self.system.pending_approvals[request.request_id] = request
+
+        # Try to approve
+        success = self.system.approve(
+            request_id=request.request_id,
+            decided_by="admin",
+            rationale="Should fail - expired",
+        )
+
+        self.assertFalse(success)
+
+    def test_deny_success(self):
+        """Test successful denial."""
+        # Create a pending request
+        request = ApprovalRequest(
+            operation="test_op",
+            risk_level=RiskLevel.MEDIUM,
+            concerns=["Test concern"],
+        )
+        self.system.pending_approvals[request.request_id] = request
+
+        # Deny it
+        success = self.system.deny(
+            request_id=request.request_id,
+            decided_by="admin",
+            rationale="Risk too high",
+        )
+
+        self.assertTrue(success)
+
+    def test_deny_not_found(self):
+        """Test denial of non-existent request."""
+        success = self.system.deny(
+            request_id="nonexistent",
+            decided_by="admin",
+            rationale="Should fail",
+        )
+
+        self.assertFalse(success)
+
+    def test_get_pending_approvals_empty(self):
+        """Test getting pending approvals when none exist."""
+        pending = self.system.get_pending_approvals()
+
+        self.assertEqual(len(pending), 0)
+
+    def test_get_pending_approvals_removes_expired(self):
+        """Test that expired approvals are removed."""
+        # Add valid request
+        valid_request = ApprovalRequest(
+            operation="valid",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+            timeout_hours=24.0,
+        )
+        self.system.pending_approvals[valid_request.request_id] = valid_request
+
+        # Add expired request
+        past = datetime.now(timezone.utc) - timedelta(hours=25)
+        expired_request = ApprovalRequest(
+            operation="expired",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+            timeout_hours=24.0,
+            created_at=past,
+        )
+        self.system.pending_approvals[expired_request.request_id] = expired_request
+
+        # Get pending (should remove expired)
+        pending = self.system.get_pending_approvals()
+
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0].operation, "valid")
+        self.assertNotIn(expired_request.request_id, self.system.pending_approvals)
+
+    def test_get_approval_history_empty(self):
+        """Test getting approval history when empty."""
+        history = self.system.get_approval_history()
+
+        self.assertEqual(len(history), 0)
+
+    def test_get_approval_history_with_limit(self):
+        """Test getting approval history with limit."""
+        # Add some decisions
+        for i in range(5):
+            decision = ApprovalDecision(
+                approved=True,
+                auto_approved=False,
+                risk_level=RiskLevel.LOW,
+                rationale=f"Test {i}",
+                decided_by="admin",
+                request_id=f"test-{i}",
+            )
+            self.system.approval_history.append(decision)
+
+        # Get limited history
+        history = self.system.get_approval_history(limit=3)
+
+        self.assertEqual(len(history), 3)
+
+    def test_check_pending_approvals_summary(self):
+        """Test checking pending approvals summary."""
+        # Add requests with different risk levels
+        low_request = ApprovalRequest(
+            operation="low_op",
+            risk_level=RiskLevel.LOW,
+            concerns=[],
+        )
+        high_request = ApprovalRequest(
+            operation="high_op",
+            risk_level=RiskLevel.HIGH,
+            concerns=[],
+        )
+        critical_request = ApprovalRequest(
+            operation="critical_op",
+            risk_level=RiskLevel.CRITICAL,
+            concerns=[],
+        )
+
+        self.system.pending_approvals[low_request.request_id] = low_request
+        self.system.pending_approvals[high_request.request_id] = high_request
+        self.system.pending_approvals[critical_request.request_id] = critical_request
+
+        summary = self.system.check_pending_approvals()
+
+        self.assertEqual(summary["total_pending"], 3)
+        self.assertEqual(summary["by_risk_level"]["low"], 1)
+        self.assertEqual(summary["by_risk_level"]["high"], 1)
+        self.assertEqual(summary["by_risk_level"]["critical"], 1)
+        self.assertEqual(summary["by_operation"]["low_op"], 1)
+        self.assertEqual(summary["by_operation"]["high_op"], 1)
+
+    def test_check_pending_approvals_expiring_soon(self):
+        """Test detection of approvals expiring soon."""
+        # Add request expiring in 30 minutes
+        soon = datetime.now(timezone.utc) - timedelta(hours=23.5)
+        expiring_request = ApprovalRequest(
+            operation="expiring",
+            risk_level=RiskLevel.HIGH,
+            concerns=[],
+            timeout_hours=24.0,
+            created_at=soon,
+        )
+        self.system.pending_approvals[expiring_request.request_id] = expiring_request
+
+        summary = self.system.check_pending_approvals()
+
+        self.assertEqual(len(summary["expiring_soon"]), 1)
+        self.assertEqual(summary["expiring_soon"][0]["operation"], "expiring")
+        self.assertLess(summary["expiring_soon"][0]["time_remaining_minutes"], 60)
+
+    def test_synthesize_risk_assessments_empty(self):
+        """Test risk synthesis with empty responses."""
+        risk_level, concerns = self.system._synthesize_risk_assessments([])
+
+        self.assertEqual(risk_level, RiskLevel.MEDIUM)
+        self.assertEqual(concerns, ["No risk assessment available"])
+
+    def test_synthesize_risk_assessments_conservative(self):
+        """Test conservative risk synthesis (highest risk wins)."""
+        responses = [
+            {"content": "Risk Level: low\n- Routine change"},
+            {"content": "Risk Level: critical\n- Affects production systems"},
+            {"content": "Risk Level: medium\n- Requires review"},
+        ]
+
+        risk_level, concerns = self.system._synthesize_risk_assessments(responses)
+
+        # Should pick critical (highest risk)
+        self.assertEqual(risk_level, RiskLevel.CRITICAL)
+
+    def test_synthesize_risk_assessments_extract_concerns(self):
+        """Test concern extraction from responses."""
+        responses = [
+            {"content": "Risk: high\n- Security implications\n- Breaking changes"},
+            {
+                "content": "Risk: medium\nconcern: No test coverage\n• Affects multiple services"
+            },
+        ]
+
+        risk_level, concerns = self.system._synthesize_risk_assessments(responses)
+
+        # Should extract concerns from both responses
+        self.assertGreater(len(concerns), 0)
+
+    def test_build_risk_assessment_prompt(self):
+        """Test building risk assessment prompt."""
+        prompt = self.system._build_risk_assessment_prompt(
+            "merge_to_main",
+            {"pr_number": 123, "files_changed": 5},
+        )
+
+        self.assertIn("merge_to_main", prompt)
+        self.assertIn("pr_number", prompt)
+        self.assertIn("files_changed", prompt)
+        self.assertIn("risk level", prompt.lower())
+
+    def test_format_context(self):
+        """Test context formatting."""
+        context = {"key1": "value1", "key2": 42}
+
+        formatted = self.system._format_context(context)
+
+        self.assertIn("key1: value1", formatted)
+        self.assertIn("key2: 42", formatted)
+
+    def test_format_context_empty(self):
+        """Test formatting empty context."""
+        formatted = self.system._format_context({})
+
+        self.assertEqual(formatted, "No additional context")
 
 
 if __name__ == "__main__":
