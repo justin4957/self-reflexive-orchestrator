@@ -8,8 +8,11 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from src.core.logger import AuditLogger
-from src.cycles.roadmap_scheduler import (GenerationFrequency,
-                                          RoadmapScheduler, ScheduleState)
+from src.cycles.roadmap_scheduler import (
+    GenerationFrequency,
+    RoadmapScheduler,
+    ScheduleState,
+)
 
 
 class TestRoadmapScheduler(unittest.TestCase):

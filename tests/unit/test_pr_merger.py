@@ -6,8 +6,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 from src.core.config import PRManagementConfig, SafetyConfig
 from src.core.logger import AuditLogger
-from src.cycles.pr_merger import (MergeResult, MergeStrategy, MergeValidation,
-                                  MergeValidationError, PRMerger)
+from src.cycles.pr_merger import (
+    MergeResult,
+    MergeStrategy,
+    MergeValidation,
+    MergeValidationError,
+    PRMerger,
+)
 from src.integrations.git_ops import GitOps
 from src.integrations.github_client import GitHubClient
 

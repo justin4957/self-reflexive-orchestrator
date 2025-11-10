@@ -6,9 +6,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from src.analyzers.codebase_analyzer import (CodebaseAnalysis,
-                                             CodebaseAnalyzer, CodebaseMetrics,
-                                             DependencyInfo, FileMetrics)
+from src.analyzers.codebase_analyzer import (
+    CodebaseAnalysis,
+    CodebaseAnalyzer,
+    CodebaseMetrics,
+    DependencyInfo,
+    FileMetrics,
+)
 from src.core.logger import AuditLogger
 
 

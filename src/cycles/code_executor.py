@@ -6,14 +6,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..analyzers.implementation_planner import (ImplementationPlan,
-                                                ImplementationStep)
+from ..analyzers.implementation_planner import ImplementationPlan, ImplementationStep
 from ..core.logger import AuditLogger, EventType
 from ..core.state import OrchestratorState, WorkItem
 from ..integrations.git_ops import CommitInfo, GitOps, GitOpsError
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentResponse,
-                                                     MultiAgentStrategy)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 
 
 class ExecutionStatus(Enum):

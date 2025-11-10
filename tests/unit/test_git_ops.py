@@ -7,9 +7,14 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 from src.core.logger import AuditLogger
-from src.integrations.git_ops import (CommitInfo, GitBranchError,
-                                      GitCommitError, GitOps, GitOpsError,
-                                      GitStatus)
+from src.integrations.git_ops import (
+    CommitInfo,
+    GitBranchError,
+    GitCommitError,
+    GitOps,
+    GitOpsError,
+    GitStatus,
+)
 
 
 class TestGitOps(unittest.TestCase):

@@ -13,9 +13,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger, EventType
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentResponse,
-                                                     MultiAgentStrategy)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 from ..integrations.test_runner import TestFailure, TestFramework, TestResult
 
 

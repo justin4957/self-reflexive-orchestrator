@@ -9,8 +9,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.core.logger import setup_logging
 from src.cycles.roadmap_generator import RoadmapGenerator
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentStrategy)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentStrategy,
+)
 
 
 def test_generate_real_roadmap():

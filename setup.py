@@ -32,6 +32,7 @@ setup(
         "redis>=5.0.1",
         "httpx>=0.25.2",
         "structlog>=24.1.0",
+        "psutil>=5.9.0",
     ],
     extras_require={
         "dev": [

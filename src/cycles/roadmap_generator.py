@@ -10,11 +10,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..analyzers.codebase_analyzer import CodebaseAnalysis, CodebaseAnalyzer
-from ..analyzers.multi_agent_analyzer import (MultiAgentAnalysisResult,
-                                              MultiAgentAnalyzer)
+from ..analyzers.multi_agent_analyzer import (
+    MultiAgentAnalysisResult,
+    MultiAgentAnalyzer,
+)
 from ..core.logger import AuditLogger
-from ..cycles.multi_agent_ideation import (IdeationResult, MultiAgentIdeation,
-                                           SynthesizedRoadmap)
+from ..cycles.multi_agent_ideation import (
+    IdeationResult,
+    MultiAgentIdeation,
+    SynthesizedRoadmap,
+)
 from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
 
 

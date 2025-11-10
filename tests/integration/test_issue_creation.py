@@ -10,10 +10,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.core.logger import setup_logging
 from src.cycles.issue_creator import IssueCreator
 from src.cycles.multi_agent_ideation import FeatureProposal, ProposalPriority
-from src.cycles.roadmap_validator import (DialecticalValidation,
-                                          ProposalValidation,
-                                          SynthesizedRoadmap, ValidatedRoadmap,
-                                          ValidationDecision)
+from src.cycles.roadmap_validator import (
+    DialecticalValidation,
+    ProposalValidation,
+    SynthesizedRoadmap,
+    ValidatedRoadmap,
+    ValidationDecision,
+)
 from src.integrations.github_client import GitHubClient
 
 

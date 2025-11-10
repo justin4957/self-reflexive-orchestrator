@@ -9,9 +9,11 @@ from src.core.state import WorkItem
 from src.cycles.pr_cycle import CodeReviewer, CodeReviewResult
 from src.integrations.git_ops import GitOps
 from src.integrations.github_client import GitHubClient
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       PRReviewResult,
-                                                       ReviewComment)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    PRReviewResult,
+    ReviewComment,
+)
 
 
 class TestCodeReviewIntegration(unittest.TestCase):

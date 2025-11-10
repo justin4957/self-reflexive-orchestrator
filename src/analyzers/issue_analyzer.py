@@ -8,8 +8,10 @@ from typing import Any, Dict, List, Optional
 from github.Issue import Issue
 
 from ..core.logger import AuditLogger, EventType
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentResponse)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+)
 
 
 class IssueType(Enum):
