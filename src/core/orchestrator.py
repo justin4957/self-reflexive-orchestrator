@@ -206,19 +206,16 @@ class Orchestrator:
         self.llm_cache = LLMCache(
             cache_manager=self.cache_manager,
             logger=self.logger,
-            default_ttl=86400,  # 24 hours
         )
 
         self.github_cache = GitHubAPICache(
             cache_manager=self.cache_manager,
             logger=self.logger,
-            default_ttl=3600,  # 1 hour
         )
 
         self.analysis_cache = AnalysisCache(
             cache_manager=self.cache_manager,
             logger=self.logger,
-            default_ttl=604800,  # 7 days
         )
 
         # Initialize analytics components
