@@ -30,7 +30,7 @@ class Database:
     - Ensure data integrity
     """
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, db_path: str, logger: AuditLogger):
         """Initialize database manager.
@@ -91,6 +91,23 @@ class Database:
                 from_version=from_version,
                 to_version=1,
             )
+
+        if from_version < 2:
+            # Migration 2: Add repository context table
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS repository_context (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    context_data TEXT NOT NULL,
+                    last_updated TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+            cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (2,))
+            conn.commit()
+
+            self.logger.info("database_migration_applied", from_version=1, to_version=2)
 
     def _create_initial_schema(self, cursor: sqlite3.Cursor):
         """Create initial database schema.
@@ -381,3 +398,62 @@ class Database:
         self._initialize_schema()
 
         self.logger.warning("database_reset", tables_dropped=len(tables))
+
+    def save_repository_context(self, context_data: str, last_updated: str):
+        """Save repository context to database.
+
+        Args:
+            context_data: JSON-serialized context data
+            last_updated: Timestamp of last update
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Delete old context (keep only latest)
+            cursor.execute("DELETE FROM repository_context")
+
+            # Insert new context
+            cursor.execute(
+                """
+                INSERT INTO repository_context (context_data, last_updated)
+                VALUES (?, ?)
+            """,
+                (context_data, last_updated),
+            )
+
+            conn.commit()
+
+        self.logger.info("repository_context_saved", last_updated=last_updated)
+
+    def load_repository_context(self) -> Optional[Dict[str, Any]]:
+        """Load repository context from database.
+
+        Returns:
+            Context dictionary, or None if not found
+        """
+        import json
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Disable timestamp parsing for this query
+            results = self.execute(
+                """
+                SELECT context_data, last_updated
+                FROM repository_context
+                ORDER BY created_at DESC
+                LIMIT 1
+            """,
+                (),
+            )
+
+            if results:
+                result = results[0]
+                context_data = json.loads(result["context_data"])
+                context_data["last_updated"] = result["last_updated"]
+                self.logger.info(
+                    "repository_context_loaded", last_updated=result["last_updated"]
+                )
+                return context_data
+
+        return None
