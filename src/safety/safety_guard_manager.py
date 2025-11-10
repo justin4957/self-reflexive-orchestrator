@@ -5,8 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger
 from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
-from .breaking_change_detector import (BreakingChangeAnalysis,
-                                       BreakingChangeDetector)
+from .breaking_change_detector import BreakingChangeAnalysis, BreakingChangeDetector
 from .guards import GuardDecision, Operation, OperationGuard, RiskLevel
 from .multi_agent_risk_assessor import MultiAgentRiskAssessor, RiskAssessment
 

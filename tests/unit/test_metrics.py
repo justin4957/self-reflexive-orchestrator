@@ -3,8 +3,7 @@
 import time
 import unittest
 
-from src.core.metrics import (Metric, MetricsCollector, MetricsSummary,
-                              MetricType)
+from src.core.metrics import Metric, MetricsCollector, MetricsSummary, MetricType
 
 
 class TestMetric(unittest.TestCase):

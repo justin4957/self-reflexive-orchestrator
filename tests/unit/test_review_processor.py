@@ -6,11 +6,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 from src.core.config import LLMConfig
 from src.core.logger import AuditLogger
-from src.cycles.review_processor import (FeedbackItem, ReviewFeedbackProcessor,
-                                         ReviewProcessingResult)
+from src.cycles.review_processor import (
+    FeedbackItem,
+    ReviewFeedbackProcessor,
+    ReviewProcessingResult,
+)
 from src.integrations.git_ops import GitOps
-from src.integrations.multi_agent_coder_client import (PRReviewResult,
-                                                       ReviewComment)
+from src.integrations.multi_agent_coder_client import PRReviewResult, ReviewComment
 
 
 class TestReviewFeedbackProcessor(unittest.TestCase):

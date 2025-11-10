@@ -8,8 +8,13 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from src.core.logger import AuditLogger
-from src.safety.cost_tracker import (CostLimitExceeded, CostTracker,
-                                     DailyUsage, Provider, ProviderUsage)
+from src.safety.cost_tracker import (
+    CostLimitExceeded,
+    CostTracker,
+    DailyUsage,
+    Provider,
+    ProviderUsage,
+)
 
 
 class TestCostTracker(unittest.TestCase):

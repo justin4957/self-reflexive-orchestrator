@@ -12,8 +12,7 @@ from typing import Any, Dict, List, Optional
 from ..core.config import LLMConfig
 from ..core.logger import AuditLogger, EventType
 from ..integrations.git_ops import GitOps
-from ..integrations.multi_agent_coder_client import (PRReviewResult,
-                                                     ReviewComment)
+from ..integrations.multi_agent_coder_client import PRReviewResult, ReviewComment
 
 
 @dataclass

@@ -5,8 +5,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import psutil
 
-from src.core.health import (HealthChecker, HealthCheckResult, HealthReport,
-                             HealthStatus)
+from src.core.health import HealthChecker, HealthCheckResult, HealthReport, HealthStatus
 from src.core.logger import AuditLogger
 
 

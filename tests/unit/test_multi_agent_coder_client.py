@@ -6,11 +6,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 from src.core.logger import AuditLogger
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentResponse,
-                                                       MultiAgentStrategy,
-                                                       PRReviewResult,
-                                                       ReviewComment)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+    PRReviewResult,
+    ReviewComment,
+)
 
 
 class TestMultiAgentCoderClient(unittest.TestCase):

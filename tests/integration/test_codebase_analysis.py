@@ -10,8 +10,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.analyzers.codebase_analyzer import CodebaseAnalyzer
 from src.analyzers.multi_agent_analyzer import MultiAgentAnalyzer
 from src.core.logger import setup_logging
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentStrategy)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentStrategy,
+)
 
 
 def test_analyze_real_codebase():

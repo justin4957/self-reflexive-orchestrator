@@ -4,14 +4,23 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock, call, patch
 
-from src.analyzers.implementation_planner import (ImplementationPlan,
-                                                  ImplementationStep,
-                                                  PlanConfidence, TestStrategy)
+from src.analyzers.implementation_planner import (
+    ImplementationPlan,
+    ImplementationStep,
+    PlanConfidence,
+    TestStrategy,
+)
 from src.core.logger import AuditLogger
 from src.core.state import WorkItem
-from src.cycles.pr_cycle import (CICheckStatus, CIMonitor, CIMonitorResult,
-                                 CIStatus, PRCreationResult, PRCreator,
-                                 PRDetails)
+from src.cycles.pr_cycle import (
+    CICheckStatus,
+    CIMonitor,
+    CIMonitorResult,
+    CIStatus,
+    PRCreationResult,
+    PRCreator,
+    PRDetails,
+)
 from src.integrations.git_ops import GitOps
 from src.integrations.github_client import GitHubClient
 from src.integrations.test_runner import TestFailure, TestFramework, TestResult

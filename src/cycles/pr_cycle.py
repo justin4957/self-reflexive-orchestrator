@@ -14,9 +14,11 @@ from ..core.logger import AuditLogger, EventType
 from ..core.state import WorkItem
 from ..integrations.git_ops import GitOps
 from ..integrations.github_client import GitHubClient
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     PRReviewResult,
-                                                     ReviewComment)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    PRReviewResult,
+    ReviewComment,
+)
 from ..integrations.test_runner import TestResult
 from .pr_merger import MergeResult, PRMerger
 from .review_processor import ReviewFeedbackProcessor, ReviewProcessingResult

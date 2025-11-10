@@ -8,8 +8,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentStrategy)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentStrategy,
+)
 
 
 @dataclass

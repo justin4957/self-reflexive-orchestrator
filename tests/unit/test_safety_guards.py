@@ -4,8 +4,7 @@ import unittest
 from unittest.mock import Mock
 
 from src.core.logger import AuditLogger
-from src.safety.guards import (Operation, OperationGuard, OperationType,
-                               RiskLevel)
+from src.safety.guards import Operation, OperationGuard, OperationType, RiskLevel
 
 
 class TestOperationGuard(unittest.TestCase):

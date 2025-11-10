@@ -4,10 +4,11 @@ import unittest
 from unittest.mock import MagicMock, Mock
 
 from src.core.logger import AuditLogger
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentResponse)
-from src.safety.failure_analyzer import (FailureAnalysis, FailureAnalyzer,
-                                         LessonsLearned)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+)
+from src.safety.failure_analyzer import FailureAnalysis, FailureAnalyzer, LessonsLearned
 
 
 class TestFailureAnalyzer(unittest.TestCase):

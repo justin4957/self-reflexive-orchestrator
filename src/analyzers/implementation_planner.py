@@ -9,9 +9,11 @@ from github.Issue import Issue
 
 from ..analyzers.issue_analyzer import IssueAnalysis
 from ..core.logger import AuditLogger, EventType
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentResponse,
-                                                     MultiAgentStrategy)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 
 
 class PlanConfidence(Enum):

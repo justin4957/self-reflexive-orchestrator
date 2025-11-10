@@ -4,11 +4,12 @@ import unittest
 from unittest.mock import MagicMock, Mock
 
 from src.core.logger import AuditLogger
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentResponse)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+)
 from src.safety.guards import Operation, OperationType, RiskLevel
-from src.safety.multi_agent_risk_assessor import (MultiAgentRiskAssessor,
-                                                  RiskAssessment)
+from src.safety.multi_agent_risk_assessor import MultiAgentRiskAssessor, RiskAssessment
 
 
 class TestMultiAgentRiskAssessor(unittest.TestCase):

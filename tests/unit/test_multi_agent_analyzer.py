@@ -4,16 +4,23 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import Mock
 
-from src.analyzers.codebase_analyzer import (CodebaseAnalysis, CodebaseMetrics,
-                                             DependencyInfo)
-from src.analyzers.multi_agent_analyzer import (ConsensusInsights,
-                                                MultiAgentAnalysisResult,
-                                                MultiAgentAnalyzer,
-                                                ProviderInsight)
+from src.analyzers.codebase_analyzer import (
+    CodebaseAnalysis,
+    CodebaseMetrics,
+    DependencyInfo,
+)
+from src.analyzers.multi_agent_analyzer import (
+    ConsensusInsights,
+    MultiAgentAnalysisResult,
+    MultiAgentAnalyzer,
+    ProviderInsight,
+)
 from src.core.logger import AuditLogger
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentResponse,
-                                                       MultiAgentStrategy)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 
 
 class TestMultiAgentAnalyzer(unittest.TestCase):

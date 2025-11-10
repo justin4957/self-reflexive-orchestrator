@@ -20,9 +20,11 @@ from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger, EventType
 from ..cycles.pr_cycle import CICheckStatus, CIStatus
-from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                     MultiAgentResponse,
-                                                     MultiAgentStrategy)
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 
 
 class CIFailureCategory(Enum):

@@ -9,8 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from src.core.logger import AuditLogger
-from src.safety.rate_limiter import (RateLimiter, RateLimitExceeded,
-                                     RateLimitInfo)
+from src.safety.rate_limiter import RateLimiter, RateLimitExceeded, RateLimitInfo
 
 
 class TestRateLimiter(unittest.TestCase):

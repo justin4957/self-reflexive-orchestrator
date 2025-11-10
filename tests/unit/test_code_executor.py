@@ -5,17 +5,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
-from src.analyzers.implementation_planner import (ImplementationPlan,
-                                                  ImplementationStep,
-                                                  PlanConfidence, TestStrategy)
+from src.analyzers.implementation_planner import (
+    ImplementationPlan,
+    ImplementationStep,
+    PlanConfidence,
+    TestStrategy,
+)
 from src.core.logger import AuditLogger
 from src.core.state import OrchestratorState, WorkItem
-from src.cycles.code_executor import (CodeChange, CodeExecutor,
-                                      ExecutionResult, ExecutionStatus,
-                                      StepExecution)
+from src.cycles.code_executor import (
+    CodeChange,
+    CodeExecutor,
+    ExecutionResult,
+    ExecutionStatus,
+    StepExecution,
+)
 from src.integrations.git_ops import CommitInfo, GitOps
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentResponse)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+)
 
 
 class TestCodeExecutor(unittest.TestCase):

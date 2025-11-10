@@ -5,14 +5,19 @@ from unittest.mock import MagicMock, Mock
 
 from github.Issue import Issue
 
-from src.analyzers.implementation_planner import (ImplementationPlan,
-                                                  ImplementationPlanner,
-                                                  ImplementationStep,
-                                                  PlanConfidence, TestStrategy)
+from src.analyzers.implementation_planner import (
+    ImplementationPlan,
+    ImplementationPlanner,
+    ImplementationStep,
+    PlanConfidence,
+    TestStrategy,
+)
 from src.analyzers.issue_analyzer import IssueAnalysis, IssueType
 from src.core.logger import AuditLogger
-from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
-                                                       MultiAgentResponse)
+from src.integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+)
 
 
 class TestImplementationPlanner(unittest.TestCase):
