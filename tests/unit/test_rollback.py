@@ -1,16 +1,12 @@
 """Unit tests for rollback functionality."""
 
-import unittest
-from unittest.mock import Mock, MagicMock, patch, call
-from datetime import datetime, timezone
 import subprocess
+import unittest
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock, call, patch
 
-from src.safety.rollback import (
-    RollbackManager,
-    RollbackPoint,
-    RollbackResult,
-)
 from src.core.logger import AuditLogger
+from src.safety.rollback import RollbackManager, RollbackPoint, RollbackResult
 
 
 class TestRollbackManager(unittest.TestCase):

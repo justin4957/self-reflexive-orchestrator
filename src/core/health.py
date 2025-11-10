@@ -5,13 +5,14 @@ integrations, and operational metrics.
 """
 
 import os
-import psutil
 import subprocess
 import time
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 from .logger import AuditLogger
 

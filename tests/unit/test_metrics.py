@@ -1,8 +1,10 @@
 """Unit tests for metrics collector."""
 
-import unittest
 import time
-from src.core.metrics import MetricsCollector, Metric, MetricType, MetricsSummary
+import unittest
+
+from src.core.metrics import (Metric, MetricsCollector, MetricsSummary,
+                              MetricType)
 
 
 class TestMetric(unittest.TestCase):

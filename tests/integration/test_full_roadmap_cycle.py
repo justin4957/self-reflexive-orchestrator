@@ -14,10 +14,10 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.core.logger import setup_logging
 from src.cycles.roadmap_cycle import RoadmapCycle
 from src.integrations.github_client import GitHubClient
 from src.integrations.multi_agent_coder_client import MultiAgentCoderClient
-from src.core.logger import setup_logging
 
 
 def test_full_roadmap_cycle():

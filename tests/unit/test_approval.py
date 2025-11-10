@@ -6,12 +6,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from src.core.logger import AuditLogger
-from src.safety.approval import (
-    ApprovalDecision,
-    ApprovalRequest,
-    ApprovalSystem,
-    RiskLevel,
-)
+from src.safety.approval import (ApprovalDecision, ApprovalRequest,
+                                 ApprovalSystem, RiskLevel)
 
 
 class TestApprovalRequest(unittest.TestCase):

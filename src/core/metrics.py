@@ -5,11 +5,11 @@ API calls, response times, and error counts.
 """
 
 import time
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
 from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class MetricType(Enum):

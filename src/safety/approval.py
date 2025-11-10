@@ -12,10 +12,8 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 from ..core.logger import AuditLogger
-from ..integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentStrategy,
-)
+from ..integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                     MultiAgentStrategy)
 
 
 class RiskLevel(Enum):

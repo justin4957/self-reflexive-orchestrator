@@ -1,15 +1,12 @@
 """Unit tests for health check system."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
+
 import psutil
 
-from src.core.health import (
-    HealthChecker,
-    HealthStatus,
-    HealthCheckResult,
-    HealthReport,
-)
+from src.core.health import (HealthChecker, HealthCheckResult, HealthReport,
+                             HealthStatus)
 from src.core.logger import AuditLogger
 
 

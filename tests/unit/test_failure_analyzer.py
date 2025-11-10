@@ -1,18 +1,13 @@
 """Unit tests for failure analyzer."""
 
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
 
-from src.safety.failure_analyzer import (
-    FailureAnalyzer,
-    FailureAnalysis,
-    LessonsLearned,
-)
-from src.integrations.multi_agent_coder_client import (
-    MultiAgentCoderClient,
-    MultiAgentResponse,
-)
 from src.core.logger import AuditLogger
+from src.integrations.multi_agent_coder_client import (MultiAgentCoderClient,
+                                                       MultiAgentResponse)
+from src.safety.failure_analyzer import (FailureAnalysis, FailureAnalyzer,
+                                         LessonsLearned)
 
 
 class TestFailureAnalyzer(unittest.TestCase):

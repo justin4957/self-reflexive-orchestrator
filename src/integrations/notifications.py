@@ -6,12 +6,13 @@ and configurable event filtering.
 
 import json
 import smtplib
-from typing import Dict, Any, List, Optional, Set
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Any, Dict, List, Optional, Set
+
 import requests
 
 from ..core.logger import AuditLogger

@@ -8,11 +8,11 @@ Provides comprehensive rollback capabilities including:
 - Manual and automatic rollback triggers
 """
 
-from typing import Optional, Dict, Any, List
+import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-import subprocess
+from typing import Any, Dict, List, Optional
 
 from ..core.logger import AuditLogger
 from ..integrations.github_client import GitHubClient

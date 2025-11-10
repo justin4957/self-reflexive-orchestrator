@@ -1,19 +1,16 @@
 """Unit tests for notification system."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, Mock, call, patch
 
-from src.integrations.notifications import (
-    NotificationManager,
-    NotificationEvent,
-    NotificationResult,
-    RateLimiter,
-    SlackNotifier,
-    EmailNotifier,
-    GitHubCommentNotifier,
-)
 from src.core.logger import AuditLogger
+from src.integrations.notifications import (EmailNotifier,
+                                            GitHubCommentNotifier,
+                                            NotificationEvent,
+                                            NotificationManager,
+                                            NotificationResult, RateLimiter,
+                                            SlackNotifier)
 
 
 class TestRateLimiter(unittest.TestCase):
