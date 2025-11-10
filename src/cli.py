@@ -1705,6 +1705,177 @@ def db_stats(ctx):
         sys.exit(1)
 
 
+@cli.command("dashboard")
+@click.option(
+    "--refresh",
+    type=int,
+    default=0,
+    help="Auto-refresh interval in seconds (0 = no refresh)",
+)
+@click.pass_context
+def dashboard(ctx, refresh: int):
+    """Display performance dashboard with real-time metrics.
+
+    Shows overview, activity, performance, costs, and current operations.
+    Use --refresh N to auto-refresh every N seconds.
+    """
+    try:
+        from .core.dashboard import Dashboard
+
+        # Initialize orchestrator
+        orchestrator = Orchestrator(ctx.obj["config_path"])
+
+        # Create dashboard
+        dash = Dashboard(
+            database=orchestrator.database,
+            analytics=orchestrator.analytics_collector,
+            insights=orchestrator.insights_generator,
+            cache_manager=getattr(orchestrator, "cache_manager", None),
+            logger=orchestrator.logger,
+        )
+
+        if refresh > 0:
+            import os
+            import time
+
+            console.print(
+                f"[yellow]Auto-refreshing every {refresh} seconds. Press Ctrl+C to exit.[/yellow]"
+            )
+            try:
+                while True:
+                    # Clear screen
+                    os.system("clear" if os.name == "posix" else "cls")
+
+                    # Get and display metrics
+                    metrics = dash.get_metrics()
+                    dashboard_output = dash.format_cli(metrics)
+                    console.print(dashboard_output)
+
+                    time.sleep(refresh)
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Dashboard stopped.[/yellow]")
+        else:
+            # Single display
+            metrics = dash.get_metrics()
+            dashboard_output = dash.format_cli(metrics)
+            console.print(dashboard_output)
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("report")
+@click.option("--days", type=int, default=7, help="Number of days to include in report")
+@click.option("--detailed", is_flag=True, help="Generate detailed report")
+@click.option(
+    "--format",
+    type=click.Choice(["json", "markdown"]),
+    default="markdown",
+    help="Output format",
+)
+@click.option("--output", type=str, help="Output file path (optional)")
+@click.pass_context
+def report(ctx, days: int, detailed: bool, format: str, output: str):
+    """Generate performance report.
+
+    Creates summary or detailed reports with metrics, costs, and insights.
+    Can export to JSON or Markdown format.
+    """
+    try:
+        from .core.reports import ReportGenerator
+
+        # Initialize orchestrator
+        orchestrator = Orchestrator(ctx.obj["config_path"])
+
+        # Create report generator
+        reporter = ReportGenerator(
+            database=orchestrator.database,
+            analytics=orchestrator.analytics_collector,
+            insights=orchestrator.insights_generator,
+            logger=orchestrator.logger,
+        )
+
+        console.print(
+            f"[cyan]Generating {'detailed' if detailed else 'summary'} report for last {days} days...[/cyan]"
+        )
+
+        # Generate report
+        if detailed:
+            report_data = reporter.generate_detailed_report(days=days)
+        else:
+            report_data = reporter.generate_summary_report(days=days)
+
+        # Export or display
+        if output:
+            if format == "json":
+                reporter.export_json(report_data, output)
+                console.print(f"[green]✓ Report exported to {output}[/green]")
+            else:
+                reporter.export_markdown(report_data, output)
+                console.print(f"[green]✓ Report exported to {output}[/green]")
+        else:
+            # Display summary in console
+            console.print(
+                Panel.fit(
+                    f"📊 {'Detailed' if detailed else 'Summary'} Report ({days} days)",
+                    style="bold blue",
+                )
+            )
+            console.print()
+
+            # Overall metrics
+            console.print("[bold]Overall Metrics:[/bold]")
+            overall = report_data["overall"]
+            console.print(f"  Success Rate: {overall['success_rate']:.1%}")
+            console.print(f"  Total Operations: {overall['total_operations']}")
+            console.print()
+
+            # Costs
+            console.print("[bold]Costs:[/bold]")
+            costs = report_data["costs"]
+            console.print(f"  Total Cost: ${costs['total_cost']:.2f}")
+            console.print(
+                f"  Avg per Operation: ${costs['avg_cost_per_operation']:.2f}"
+            )
+            console.print(f"  Total Tokens: {costs['total_tokens']:,}")
+            console.print()
+
+            # Issues
+            console.print("[bold]Issues:[/bold]")
+            issues = report_data["issues"]
+            console.print(f"  Processed: {issues['total_processed']}")
+            console.print(f"  Success Rate: {issues['success_rate']:.1%}")
+            console.print()
+
+            # PRs
+            console.print("[bold]Pull Requests:[/bold]")
+            prs = report_data["pull_requests"]
+            console.print(f"  Created: {prs['total_created']}")
+            console.print(f"  Merged: {prs['total_merged']}")
+            console.print(f"  Merge Rate: {prs['merge_rate']:.1%}")
+            console.print()
+
+            if detailed and "detailed" in report_data:
+                console.print("[bold]Top Issues:[/bold]")
+                errors = report_data["detailed"].get("errors_by_type", {})
+                for error_type, count in list(errors.items())[:5]:
+                    console.print(f"  {error_type}: {count}")
+
+            console.print()
+            console.print("[dim]Use --output <file> to export full report[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     cli(obj={})
