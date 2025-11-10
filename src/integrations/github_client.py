@@ -1,7 +1,7 @@
 """GitHub API integration for the orchestrator."""
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from github import Github, GithubException
 from github.Repository import Repository
 from github.Issue import Issue
@@ -9,26 +9,38 @@ from github.PullRequest import PullRequest
 from github.GithubObject import NotSet
 
 from ..core.logger import AuditLogger
+from ..safety.rate_limiter import RateLimiter
 
 
 class GitHubClient:
     """Wrapper around PyGithub for orchestrator operations."""
 
-    def __init__(self, token: str, repository: str, logger: AuditLogger):
+    def __init__(
+        self,
+        token: str,
+        repository: str,
+        logger: AuditLogger,
+        rate_limiter: Optional[RateLimiter] = None,
+    ):
         """Initialize GitHub client.
 
         Args:
             token: GitHub personal access token
             repository: Repository in format "owner/repo"
             logger: Audit logger instance
+            rate_limiter: Optional rate limiter for tracking API limits
         """
         self.token = token
         self.repository_name = repository
         self.logger = logger
+        self.rate_limiter = rate_limiter
 
         # Initialize GitHub client
         self.github = Github(token)
         self.repo: Repository = self.github.get_repo(repository)
+
+        # Update rate limit after initialization
+        self._update_rate_limit()
 
     def get_issues(
         self,
@@ -472,3 +484,90 @@ class GitHubClient:
                 ref=ref,
             )
             raise
+
+    def get_rate_limit_status(self) -> Dict[str, Any]:
+        """Get current GitHub API rate limit status.
+
+        Returns:
+            Dictionary with rate limit information
+        """
+        try:
+            rate_limit = self.github.get_rate_limit()
+
+            # Core API limits (most operations)
+            core = rate_limit.core
+            core_info = {
+                "limit": core.limit,
+                "remaining": core.remaining,
+                "reset_time": core.reset.isoformat(),
+            }
+
+            # Search API limits
+            search = rate_limit.search
+            search_info = {
+                "limit": search.limit,
+                "remaining": search.remaining,
+                "reset_time": search.reset.isoformat(),
+            }
+
+            # GraphQL API limits
+            graphql = rate_limit.graphql
+            graphql_info = {
+                "limit": graphql.limit,
+                "remaining": graphql.remaining,
+                "reset_time": graphql.reset.isoformat(),
+            }
+
+            # Update rate limiter if available
+            if self.rate_limiter:
+                self.rate_limiter.update_rate_limit(
+                    api="github",
+                    limit=core.limit,
+                    remaining=core.remaining,
+                    reset_time=core.reset.replace(tzinfo=timezone.utc),
+                )
+
+            return {
+                "core": core_info,
+                "search": search_info,
+                "graphql": graphql_info,
+            }
+
+        except GithubException as e:
+            self.logger.error(
+                "Failed to get rate limit status",
+                error=str(e),
+            )
+            raise
+
+    def _update_rate_limit(self):
+        """Update rate limit information after any API call."""
+        if not self.rate_limiter:
+            return
+
+        try:
+            rate_limit = self.github.get_rate_limit()
+            core = rate_limit.core
+
+            self.rate_limiter.update_rate_limit(
+                api="github",
+                limit=core.limit,
+                remaining=core.remaining,
+                reset_time=core.reset.replace(tzinfo=timezone.utc),
+            )
+
+            # Check rate limit and wait if needed
+            self.rate_limiter.wait_if_needed(api="github")
+
+        except Exception as e:
+            # Don't fail operations if rate limit tracking fails
+            self.logger.warning(
+                "Failed to update rate limit",
+                error=str(e),
+            )
+
+    def _track_request(self):
+        """Track that an API request was made."""
+        if self.rate_limiter:
+            self.rate_limiter.track_request(api="github")
+            self._update_rate_limit()
