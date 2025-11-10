@@ -1,19 +1,18 @@
 """Command-line interface for the orchestrator."""
 
-import sys
 import json
+import sys
 from pathlib import Path
 from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.table import Table
 
-from .core.orchestrator import Orchestrator
 from .core.config import ConfigManager
-
+from .core.orchestrator import Orchestrator
 
 console = Console()
 
@@ -350,11 +349,12 @@ def generate_roadmap(ctx, force: bool, goals: tuple):
         console.print(Panel.fit("🗺️  Generating Development Roadmap", style="bold blue"))
 
         # Initialize orchestrator to get clients
-        from .cycles.roadmap_cycle import RoadmapCycle
-        from .core.logger import setup_logging
-        from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
         from .core.config import ConfigManager
+        from .core.logger import setup_logging
+        from .cycles.roadmap_cycle import RoadmapCycle
+        from .integrations.github_client import GitHubClient
+        from .integrations.multi_agent_coder_client import \
+            MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
         config = config_manager.load_config()
@@ -453,11 +453,12 @@ def generate_roadmap(ctx, force: bool, goals: tuple):
 def roadmap_status(ctx):
     """Show roadmap generation schedule status."""
     try:
-        from .cycles.roadmap_cycle import RoadmapCycle
-        from .core.logger import setup_logging
-        from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
         from .core.config import ConfigManager
+        from .core.logger import setup_logging
+        from .cycles.roadmap_cycle import RoadmapCycle
+        from .integrations.github_client import GitHubClient
+        from .integrations.multi_agent_coder_client import \
+            MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
         config = config_manager.load_config()
@@ -526,11 +527,12 @@ def roadmap_status(ctx):
 def show_roadmap(ctx):
     """Display the most recently generated roadmap."""
     try:
-        from .cycles.roadmap_cycle import RoadmapCycle
-        from .core.logger import setup_logging
-        from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
         from .core.config import ConfigManager
+        from .core.logger import setup_logging
+        from .cycles.roadmap_cycle import RoadmapCycle
+        from .integrations.github_client import GitHubClient
+        from .integrations.multi_agent_coder_client import \
+            MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
         config = config_manager.load_config()
@@ -598,9 +600,9 @@ def usage_report(ctx, detailed: bool):
     """
     try:
         from .core.logger import setup_logging
+        from .integrations.github_client import GitHubClient
         from .safety.cost_tracker import CostTracker
         from .safety.rate_limiter import RateLimiter
-        from .integrations.github_client import GitHubClient
 
         console.print(Panel.fit("📊 API Usage Report", style="bold blue"))
         console.print()
@@ -769,10 +771,10 @@ def rollback(
       orchestrator rollback --list-tags
     """
     try:
-        from .safety.rollback import RollbackManager
-        from .integrations.github_client import GitHubClient
-        from .core.logger import setup_logging
         from .core.config import ConfigManager
+        from .core.logger import setup_logging
+        from .integrations.github_client import GitHubClient
+        from .safety.rollback import RollbackManager
 
         console.print(Panel.fit("🔄 Rollback Operation", style="bold blue"))
 
@@ -851,8 +853,9 @@ def rollback(
 
             else:  # commit
                 # Create temporary rollback point for commit
-                from .safety.rollback import RollbackPoint
                 from datetime import datetime, timezone
+
+                from .safety.rollback import RollbackPoint
 
                 rollback_point = RollbackPoint(
                     commit_sha=target,
@@ -922,10 +925,10 @@ def list_rollback_points(ctx):
     Shows all rollback points that have been created before risky operations.
     """
     try:
-        from .safety.rollback import RollbackManager
-        from .integrations.github_client import GitHubClient
-        from .core.logger import setup_logging
         from .core.config import ConfigManager
+        from .core.logger import setup_logging
+        from .integrations.github_client import GitHubClient
+        from .safety.rollback import RollbackManager
 
         console.print(Panel.fit("🏷️  Rollback Points", style="bold blue"))
 
@@ -1009,11 +1012,12 @@ def health(ctx, json_output: bool):
     - Integration availability (git, multi-agent-coder)
     """
     try:
+        from .core.config import ConfigManager
         from .core.health import HealthChecker, HealthStatus
         from .core.logger import setup_logging
-        from .core.config import ConfigManager
         from .integrations.github_client import GitHubClient
-        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
+        from .integrations.multi_agent_coder_client import \
+            MultiAgentCoderClient
 
         # Load configuration
         config_manager = ConfigManager(ctx.obj.get("config_path"))
@@ -1228,6 +1232,249 @@ def metrics(ctx, json_output: bool, time_window: Optional[int]):
 
     except Exception as e:
         console.print(f"[red]✗ Metrics error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("approval-list")
+@click.option("--json-output", is_flag=True, help="Output as JSON")
+@click.pass_context
+def approval_list(ctx, json_output: bool):
+    """List pending approval requests."""
+    try:
+        from .core.logger import get_logger
+        from .safety.approval import ApprovalSystem
+
+        # Initialize approval system
+        logger = get_logger(__name__)
+        approval_system = ApprovalSystem(logger=logger)
+
+        # Get pending approvals
+        pending = approval_system.get_pending_approvals()
+
+        if json_output:
+            output = [req.to_dict() for req in pending]
+            print(json.dumps(output, indent=2))
+            return
+
+        if not pending:
+            console.print("[yellow]No pending approvals[/yellow]")
+            return
+
+        console.print(Panel.fit("Pending Approval Requests", style="bold blue"))
+
+        for request in pending:
+            # Risk level color
+            risk_colors = {
+                "low": "green",
+                "medium": "yellow",
+                "high": "orange1",
+                "critical": "red",
+            }
+            risk_color = risk_colors.get(request.risk_level.value, "white")
+
+            # Build panel content
+            lines = []
+            lines.append(f"[bold]Request ID:[/bold] {request.request_id}")
+            lines.append(f"[bold]Operation:[/bold] {request.operation}")
+            lines.append(
+                f"[bold]Risk Level:[/bold] [{risk_color}]{request.risk_level.value.upper()}[/{risk_color}]"
+            )
+            lines.append(
+                f"[bold]Time Remaining:[/bold] {request.time_remaining_hours:.1f} hours"
+            )
+            lines.append("")
+            lines.append("[bold]Concerns:[/bold]")
+            for concern in request.concerns:
+                lines.append(f"  • {concern}")
+
+            if request.context:
+                lines.append("")
+                lines.append("[bold]Context:[/bold]")
+                for key, value in request.context.items():
+                    lines.append(f"  {key}: {value}")
+
+            panel = Panel(
+                "\n".join(lines),
+                title=f"[{risk_color}]{request.operation}[/{risk_color}]",
+                border_style=risk_color,
+            )
+            console.print(panel)
+            console.print()
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("approve")
+@click.argument("request_id")
+@click.option("--rationale", "-r", help="Reason for approval")
+@click.option("--user", "-u", default="cli-user", help="User making the decision")
+@click.pass_context
+def approve(ctx, request_id: str, rationale: Optional[str], user: str):
+    """Approve a pending request.
+
+    REQUEST_ID is the ID of the approval request to approve.
+    """
+    try:
+        from .core.logger import get_logger
+        from .safety.approval import ApprovalSystem
+
+        # Initialize approval system
+        logger = get_logger(__name__)
+        approval_system = ApprovalSystem(logger=logger)
+
+        # Approve request
+        success = approval_system.approve(
+            request_id=request_id,
+            decided_by=user,
+            rationale=rationale or f"Approved via CLI by {user}",
+        )
+
+        if success:
+            console.print(f"[green]✓[/green] Approved request: {request_id}")
+            console.print(f"[green]✓[/green] Decided by: {user}")
+            if rationale:
+                console.print(f"[green]✓[/green] Rationale: {rationale}")
+        else:
+            console.print(
+                f"[red]✗[/red] Failed to approve: Request not found or expired"
+            )
+            sys.exit(1)
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("deny")
+@click.argument("request_id")
+@click.option("--rationale", "-r", required=True, help="Reason for denial")
+@click.option("--user", "-u", default="cli-user", help="User making the decision")
+@click.pass_context
+def deny(ctx, request_id: str, rationale: str, user: str):
+    """Deny a pending request.
+
+    REQUEST_ID is the ID of the approval request to deny.
+    """
+    try:
+        from .core.logger import get_logger
+        from .safety.approval import ApprovalSystem
+
+        # Initialize approval system
+        logger = get_logger(__name__)
+        approval_system = ApprovalSystem(logger=logger)
+
+        # Deny request
+        success = approval_system.deny(
+            request_id=request_id, decided_by=user, rationale=rationale
+        )
+
+        if success:
+            console.print(f"[yellow]✓[/yellow] Denied request: {request_id}")
+            console.print(f"[yellow]✓[/yellow] Decided by: {user}")
+            console.print(f"[yellow]✓[/yellow] Rationale: {rationale}")
+        else:
+            console.print(f"[red]✗[/red] Failed to deny: Request not found or expired")
+            sys.exit(1)
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("approval-history")
+@click.option("--limit", "-n", type=int, default=10, help="Number of records to show")
+@click.option("--json-output", is_flag=True, help="Output as JSON")
+@click.pass_context
+def approval_history(ctx, limit: int, json_output: bool):
+    """Show approval decision history."""
+    try:
+        from .core.logger import get_logger
+        from .safety.approval import ApprovalSystem
+
+        # Initialize approval system
+        logger = get_logger(__name__)
+        approval_system = ApprovalSystem(logger=logger)
+
+        # Get history
+        history = approval_system.get_approval_history(limit=limit)
+
+        if json_output:
+            output = [decision.to_dict() for decision in history]
+            print(json.dumps(output, indent=2))
+            return
+
+        if not history:
+            console.print("[yellow]No approval history[/yellow]")
+            return
+
+        console.print(
+            Panel.fit(f"Recent Approval Decisions (Last {limit})", style="bold blue")
+        )
+
+        # Create table
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Request ID", style="cyan", width=30)
+        table.add_column("Approved", justify="center", width=10)
+        table.add_column("Risk", width=10)
+        table.add_column("Decided By", width=15)
+        table.add_column("Rationale", width=40)
+        table.add_column("When", width=20)
+
+        for decision in history:
+            # Format approval status
+            if decision.approved:
+                if decision.auto_approved:
+                    approval_text = "[green]✓ Auto[/green]"
+                else:
+                    approval_text = "[green]✓ Yes[/green]"
+            else:
+                approval_text = "[red]✗ No[/red]"
+
+            # Format risk level
+            risk_colors = {
+                "low": "green",
+                "medium": "yellow",
+                "high": "orange1",
+                "critical": "red",
+            }
+            risk_color = risk_colors.get(decision.risk_level.value, "white")
+            risk_text = f"[{risk_color}]{decision.risk_level.value}[/{risk_color}]"
+
+            # Format timestamp
+            time_str = decision.decided_at.strftime("%Y-%m-%d %H:%M")
+
+            # Truncate rationale if too long
+            rationale = decision.rationale
+            if len(rationale) > 40:
+                rationale = rationale[:37] + "..."
+
+            table.add_row(
+                decision.request_id,
+                approval_text,
+                risk_text,
+                decision.decided_by,
+                rationale,
+                time_str,
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
         import traceback
 
         traceback.print_exc()
