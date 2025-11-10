@@ -329,6 +329,257 @@ def version(ctx):
     )
 
 
+@cli.command("generate-roadmap")
+@click.option("--force", is_flag=True, help="Force generation regardless of schedule")
+@click.option(
+    "--goals",
+    multiple=True,
+    help="Project goals for roadmap context (can specify multiple times)",
+)
+@click.pass_context
+def generate_roadmap(ctx, force: bool, goals: tuple):
+    """Generate development roadmap with multi-agent collaboration.
+
+    This command executes the complete roadmap cycle:
+    1. Analyzes codebase structure and metrics
+    2. Generates feature proposals from multiple AI perspectives
+    3. Validates proposals through dialectical method
+    4. Creates GitHub issues for approved proposals
+    """
+    try:
+        console.print(Panel.fit("🗺️  Generating Development Roadmap", style="bold blue"))
+
+        # Initialize orchestrator to get clients
+        from .cycles.roadmap_cycle import RoadmapCycle
+        from .core.logger import setup_logging
+        from .integrations.github_client import GitHubClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
+        from .core.config import ConfigManager
+
+        config_manager = ConfigManager(ctx.obj.get("config_path"))
+        config = config_manager.load_config()
+        logger = setup_logging()
+
+        # Initialize clients
+        github_client = GitHubClient(
+            token=config.github.token,
+            repository=config.github.repository,
+            logger=logger,
+        )
+
+        multi_agent_client = MultiAgentCoderClient(
+            multi_agent_coder_path=config.multi_agent_coder.executable_path,
+            logger=logger,
+        )
+
+        # Initialize roadmap cycle
+        roadmap_cycle = RoadmapCycle(
+            repository_path=str(Path.cwd()),
+            github_client=github_client,
+            multi_agent_client=multi_agent_client,
+            logger=logger,
+            scheduler_frequency=config.roadmap.generation_frequency,
+            auto_create_issues=config.roadmap.auto_create_issues,
+        )
+
+        # Check if should run
+        if not force and not roadmap_cycle.should_run_cycle():
+            schedule_status = roadmap_cycle.get_schedule_status()
+            console.print("[yellow]⚠️  Roadmap generation not due yet[/yellow]")
+            console.print(
+                f"Last generated: {schedule_status['last_generation_time'] or 'never'}"
+            )
+            console.print(
+                f"Next scheduled: {schedule_status['next_scheduled_time'] or 'N/A'}"
+            )
+            console.print("\nUse --force to generate anyway")
+            return
+
+        # Convert goals tuple to list
+        project_goals = list(goals) if goals else None
+
+        if project_goals:
+            console.print("\n[bold]Project Goals:[/bold]")
+            for goal in project_goals:
+                console.print(f"  • {goal}")
+            console.print()
+
+        # Execute cycle
+        console.print("[cyan]Starting roadmap cycle...[/cyan]\n")
+        result = roadmap_cycle.execute_cycle(project_goals=project_goals, force=force)
+
+        # Display results
+        console.print("\n[green]✅ Roadmap cycle completed successfully![/green]\n")
+
+        # Summary table
+        summary_table = Table(title="Cycle Summary", show_header=False)
+        summary_table.add_column("Metric", style="cyan")
+        summary_table.add_column("Value")
+
+        summary_table.add_row("Cycle ID", result.cycle_id)
+        summary_table.add_row("Duration", f"{result.duration_seconds:.1f}s")
+        summary_table.add_row("Total Cost", f"${result.total_cost:.4f}")
+        summary_table.add_row("Total Tokens", f"{result.total_tokens:,}")
+        summary_table.add_row("Proposals Generated", str(result.proposals_generated))
+        summary_table.add_row("Proposals Approved", str(result.proposals_approved))
+        summary_table.add_row("Proposals Rejected", str(result.proposals_rejected))
+        summary_table.add_row("Issues Created", str(result.issues_created))
+
+        console.print(summary_table)
+
+        # Display created issues
+        if result.issues_created > 0:
+            console.print("\n[bold]Created Issues:[/bold]")
+            for issue in result.issue_creation.created_issues:
+                console.print(f"  • #{issue.issue_number}: {issue.title}")
+                console.print(f"    {issue.url}")
+
+        # Roadmap file
+        if result.roadmap.file_path:
+            console.print(
+                f"\n[bold]Roadmap saved to:[/bold] {result.roadmap.file_path}"
+            )
+
+    except Exception as e:
+        console.print(f"[red]✗ Error generating roadmap: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("roadmap-status")
+@click.pass_context
+def roadmap_status(ctx):
+    """Show roadmap generation schedule status."""
+    try:
+        from .cycles.roadmap_cycle import RoadmapCycle
+        from .core.logger import setup_logging
+        from .integrations.github_client import GitHubClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
+        from .core.config import ConfigManager
+
+        config_manager = ConfigManager(ctx.obj.get("config_path"))
+        config = config_manager.load_config()
+        logger = setup_logging()
+
+        # Initialize clients
+        github_client = GitHubClient(
+            token=config.github.token,
+            repository=config.github.repository,
+            logger=logger,
+        )
+
+        multi_agent_client = MultiAgentCoderClient(
+            multi_agent_coder_path=config.multi_agent_coder.executable_path,
+            logger=logger,
+        )
+
+        # Initialize roadmap cycle
+        roadmap_cycle = RoadmapCycle(
+            repository_path=str(Path.cwd()),
+            github_client=github_client,
+            multi_agent_client=multi_agent_client,
+            logger=logger,
+            scheduler_frequency=config.roadmap.generation_frequency,
+        )
+
+        status = roadmap_cycle.get_schedule_status()
+
+        # Display status
+        console.print(Panel.fit("🗓️  Roadmap Schedule Status", style="bold blue"))
+
+        status_table = Table(show_header=False)
+        status_table.add_column("Key", style="cyan")
+        status_table.add_column("Value")
+
+        status_table.add_row("Frequency", status["frequency"])
+        status_table.add_row(
+            "Last Generation", status["last_generation_time"] or "Never"
+        )
+        status_table.add_row("Last Roadmap ID", status["last_roadmap_id"] or "N/A")
+        status_table.add_row("Generation Count", str(status["generation_count"]))
+        status_table.add_row("Next Scheduled", status["next_scheduled_time"] or "N/A")
+
+        if status["time_until_next_seconds"] is not None:
+            hours = status["time_until_next_seconds"] / 3600
+            status_table.add_row("Time Until Next", f"{hours:.1f} hours")
+
+        is_due = status["is_due"]
+        status_table.add_row(
+            "Is Due", "[green]Yes[/green]" if is_due else "[yellow]No[/yellow]"
+        )
+
+        if status["last_error"]:
+            status_table.add_row("Last Error", status["last_error"])
+            status_table.add_row("Error Time", status["last_error_time"] or "N/A")
+
+        console.print(status_table)
+
+    except Exception as e:
+        console.print(f"[red]✗ Error getting status: {e}[/red]", style="bold red")
+        sys.exit(1)
+
+
+@cli.command("show-roadmap")
+@click.pass_context
+def show_roadmap(ctx):
+    """Display the most recently generated roadmap."""
+    try:
+        from .cycles.roadmap_cycle import RoadmapCycle
+        from .core.logger import setup_logging
+        from .integrations.github_client import GitHubClient
+        from .integrations.multi_agent_coder_client import MultiAgentCoderClient
+        from .core.config import ConfigManager
+
+        config_manager = ConfigManager(ctx.obj.get("config_path"))
+        config = config_manager.load_config()
+        logger = setup_logging()
+
+        # Initialize clients
+        github_client = GitHubClient(
+            token=config.github.token,
+            repository=config.github.repository,
+            logger=logger,
+        )
+
+        multi_agent_client = MultiAgentCoderClient(
+            multi_agent_coder_path=config.multi_agent_coder.executable_path,
+            logger=logger,
+        )
+
+        # Initialize roadmap cycle
+        roadmap_cycle = RoadmapCycle(
+            repository_path=str(Path.cwd()),
+            github_client=github_client,
+            multi_agent_client=multi_agent_client,
+            logger=logger,
+            scheduler_frequency=config.roadmap.generation_frequency,
+        )
+
+        roadmap_path = roadmap_cycle.get_last_roadmap_path()
+
+        if not roadmap_path:
+            console.print("[yellow]⚠️  No roadmap found[/yellow]")
+            console.print("Generate one with: orchestrator generate-roadmap")
+            return
+
+        # Read and display roadmap
+        with open(roadmap_path, "r") as f:
+            content = f.read()
+
+        console.print(Panel.fit(f"📄 Roadmap: {roadmap_path.name}", style="bold blue"))
+        console.print()
+
+        # Display with syntax highlighting
+        syntax = Syntax(content, "markdown", theme="monokai", line_numbers=False)
+        console.print(syntax)
+
+    except Exception as e:
+        console.print(f"[red]✗ Error displaying roadmap: {e}[/red]", style="bold red")
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     cli(obj={})
