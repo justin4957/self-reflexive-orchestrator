@@ -1,6 +1,7 @@
 """Main orchestrator that coordinates all operations."""
 
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -17,9 +18,12 @@ from ..integrations.github_client import GitHubClient
 from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
 from ..integrations.test_runner import TestRunner
 from .analytics import AnalyticsCollector, InsightsGenerator, OperationTracker
+from .cache import AnalysisCache, CacheManager, GitHubAPICache, LLMCache
 from .config import Config, ConfigManager
+from .dashboard import Dashboard
 from .database import Database
 from .logger import AuditLogger, EventType, setup_logging
+from .reports import ReportGenerator
 from .state import OrchestratorState, StateManager
 
 
@@ -47,25 +51,28 @@ class Orchestrator:
         # Initialize state manager
         self.state_manager = StateManager()
 
-        # Initialize GitHub client
-        self.github = GitHubClient(
-            token=self.config.github.token,
-            repository=self.config.github.repository,
-            logger=self.logger,
-        )
-
         # Set up workspace
         self.workspace = Path(self.config.orchestrator.work_dir)
         self.workspace.mkdir(parents=True, exist_ok=True)
 
-        # Initialize Phase 6 analytics (database and tracking)
-        self._initialize_analytics()
+        # Initialize Phase 6 components (analytics, caching, dashboard)
+        self._initialize_phase6_components()
+
+        # Initialize GitHub client with caching
+        self.github = GitHubClient(
+            token=self.config.github.token,
+            repository=self.config.github.repository,
+            logger=self.logger,
+            github_cache=self.github_cache,
+            enable_cache=True,
+        )
 
         # Initialize Phase 2 components
         self._initialize_phase2_components()
 
         # Running flag
         self.running = False
+        self.start_time = datetime.now(timezone.utc)
 
         self.logger.audit(
             EventType.ORCHESTRATOR_STARTED,
@@ -170,15 +177,48 @@ class Orchestrator:
         except Exception as e:
             self.logger.error("Error checking for issues", error=str(e), exc_info=True)
 
-    def _initialize_analytics(self):
-        """Initialize Phase 6 analytics and tracking components."""
-        self.logger.info("Initializing Phase 6 analytics")
+    def _initialize_phase6_components(self):
+        """Initialize all Phase 6 optimization and intelligence components.
 
-        # Initialize database
+        Phase 6 includes:
+        - Analytics and tracking (database, operation tracking, insights)
+        - Caching (LLM, GitHub API, analysis results)
+        - Dashboard and reporting (real-time metrics, exportable reports)
+        """
+        self.logger.info("Initializing Phase 6: Optimization & Intelligence")
+
+        # Initialize database for analytics
         db_path = self.workspace / "analytics.db"
         self.database = Database(
             db_path=str(db_path),
             logger=self.logger,
+        )
+
+        # Initialize cache manager and specialized caches
+        cache_dir = self.workspace / "cache"
+        self.cache_manager = CacheManager(
+            cache_dir=cache_dir,
+            logger=self.logger,
+            max_size_mb=1000,  # 1GB cache limit
+            cleanup_interval=3600,  # Cleanup every hour
+        )
+
+        self.llm_cache = LLMCache(
+            cache_manager=self.cache_manager,
+            logger=self.logger,
+            default_ttl=86400,  # 24 hours
+        )
+
+        self.github_cache = GitHubAPICache(
+            cache_manager=self.cache_manager,
+            logger=self.logger,
+            default_ttl=3600,  # 1 hour
+        )
+
+        self.analysis_cache = AnalysisCache(
+            cache_manager=self.cache_manager,
+            logger=self.logger,
+            default_ttl=604800,  # 7 days
         )
 
         # Initialize analytics components
@@ -197,7 +237,30 @@ class Orchestrator:
             logger=self.logger,
         )
 
-        self.logger.info("Phase 6 analytics initialized successfully")
+        # Initialize dashboard
+        self.dashboard = Dashboard(
+            database=self.database,
+            analytics=self.analytics_collector,
+            insights=self.insights_generator,
+            cache_manager=self.cache_manager,
+            logger=self.logger,
+            start_time=datetime.now(timezone.utc),
+        )
+
+        # Initialize report generator
+        self.report_generator = ReportGenerator(
+            database=self.database,
+            analytics=self.analytics_collector,
+            insights=self.insights_generator,
+            logger=self.logger,
+        )
+
+        self.logger.info(
+            "Phase 6 components initialized successfully",
+            cache_enabled=True,
+            dashboard_enabled=True,
+            analytics_enabled=True,
+        )
 
     def _initialize_phase2_components(self):
         """Initialize all Phase 2 components for issue processing workflow."""
@@ -209,13 +272,15 @@ class Orchestrator:
             logger=self.logger,
         )
 
-        # Initialize multi-agent-coder client
+        # Initialize multi-agent-coder client with LLM caching
         self.multi_agent_coder = MultiAgentCoderClient(
             executable_path=self.config.multi_agent_coder.executable_path,
             logger=self.logger,
             default_strategy=self.config.multi_agent_coder.default_strategy,
             default_providers=self.config.multi_agent_coder.default_providers,
             timeout=self.config.multi_agent_coder.query_timeout,
+            llm_cache=self.llm_cache,
+            enable_cache=True,
         )
 
         # Initialize test runner
