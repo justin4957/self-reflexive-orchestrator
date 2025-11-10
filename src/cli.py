@@ -580,6 +580,146 @@ def show_roadmap(ctx):
         sys.exit(1)
 
 
+@cli.command("usage-report")
+@click.option(
+    "--detailed",
+    is_flag=True,
+    help="Show detailed per-provider breakdown",
+)
+@click.pass_context
+def usage_report(ctx, detailed: bool):
+    """Show API usage and cost report.
+
+    Displays current usage statistics including:
+    - Daily cost and remaining budget
+    - Token usage by provider
+    - Rate limit status
+    - Request counts
+    """
+    try:
+        from .core.logger import setup_logging
+        from .safety.cost_tracker import CostTracker
+        from .safety.rate_limiter import RateLimiter
+        from .integrations.github_client import GitHubClient
+
+        console.print(Panel.fit("📊 API Usage Report", style="bold blue"))
+        console.print()
+
+        # Load configuration
+        config = ConfigManager(ctx.obj["config_path"])
+        logger = setup_logging(level="INFO")
+
+        # Initialize cost tracker
+        max_daily_cost = config.safety.max_api_cost_per_day
+        cost_tracker = CostTracker(
+            max_daily_cost=max_daily_cost,
+            logger=logger,
+        )
+
+        # Get usage report
+        usage = cost_tracker.get_usage_report()
+
+        # Display summary
+        console.print("[bold]Cost Summary[/bold]")
+        console.print(f"  Date: {usage['date']}")
+        console.print(f"  Daily Limit: ${usage['daily_limit']:.2f}")
+        console.print(
+            f"  Total Cost: [{'red' if usage['status'] == 'EXCEEDED' else 'yellow' if usage['status'] in ['WARNING', 'CRITICAL'] else 'green'}]${usage['total_cost']:.4f}[/]"
+        )
+        console.print(f"  Remaining Budget: ${usage['remaining_budget']:.2f}")
+        console.print(f"  Percentage Used: {usage['percentage_used']:.1f}%")
+        console.print(
+            f"  Status: [{_get_status_color(usage['status'])}]{usage['status']}[/]"
+        )
+        console.print()
+
+        # Display request stats
+        console.print("[bold]Request Statistics[/bold]")
+        console.print(f"  Total Requests: {usage['total_requests']}")
+        console.print(f"  Total Tokens: {usage['total_tokens']:,}")
+        console.print()
+
+        # Display per-provider breakdown
+        if detailed and usage["provider_breakdown"]:
+            console.print("[bold]Provider Breakdown[/bold]")
+
+            table = Table(show_header=True, header_style="bold cyan")
+            table.add_column("Provider", style="cyan")
+            table.add_column("Requests", justify="right")
+            table.add_column("Tokens (In)", justify="right")
+            table.add_column("Tokens (Out)", justify="right")
+            table.add_column("Total Tokens", justify="right")
+            table.add_column("Cost", justify="right")
+            table.add_column("% of Total", justify="right")
+
+            for provider, stats in sorted(
+                usage["provider_breakdown"].items(),
+                key=lambda x: x[1]["cost"],
+                reverse=True,
+            ):
+                table.add_row(
+                    provider.upper(),
+                    str(stats["requests"]),
+                    f"{stats['tokens_input']:,}",
+                    f"{stats['tokens_output']:,}",
+                    f"{stats['tokens_total']:,}",
+                    f"${stats['cost']:.4f}",
+                    f"{stats['cost_percentage']:.1f}%",
+                )
+
+            console.print(table)
+            console.print()
+
+        # Display rate limit status
+        console.print("[bold]Rate Limit Status[/bold]")
+
+        rate_limiter = RateLimiter(logger=logger, enable_throttling=False)
+        rate_status = rate_limiter.get_status()
+
+        if rate_status.get("apis"):
+            for api, info in rate_status["apis"].items():
+                status_color = _get_status_color(info["status"])
+                console.print(f"  {api.upper()}:")
+                console.print(
+                    f"    Status: [{status_color}]{info['status'].upper()}[/]"
+                )
+
+                if info["info"]:
+                    api_info = info["info"]
+                    console.print(f"    Limit: {api_info['limit']}")
+                    console.print(f"    Remaining: {api_info['remaining']}")
+                    console.print(
+                        f"    Used: {api_info['used']} ({api_info['percentage_used']:.1f}%)"
+                    )
+                    console.print(
+                        f"    Reset in: {api_info['seconds_until_reset']:.0f}s"
+                    )
+        else:
+            console.print("  [dim]No rate limit data available[/dim]")
+
+    except Exception as e:
+        console.print(
+            f"[red]✗ Error generating usage report: {e}[/red]", style="bold red"
+        )
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+def _get_status_color(status: str) -> str:
+    """Get color for status."""
+    status_upper = status.upper()
+    if status_upper == "OK":
+        return "green"
+    elif status_upper == "WARNING":
+        return "yellow"
+    elif status_upper in ["CRITICAL", "EXCEEDED"]:
+        return "red"
+    else:
+        return "white"
+
+
 def main():
     """Main entry point."""
     cli(obj={})

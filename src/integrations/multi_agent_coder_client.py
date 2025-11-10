@@ -10,6 +10,7 @@ from enum import Enum
 from datetime import datetime, timezone
 
 from ..core.logger import AuditLogger
+from ..safety.cost_tracker import CostTracker, Provider
 
 
 class MultiAgentStrategy(Enum):
@@ -31,6 +32,8 @@ class MultiAgentResponse:
     total_cost: float
     success: bool
     error: Optional[str] = None
+    tokens_by_provider: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    cost_by_provider: Dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -52,6 +55,7 @@ class MultiAgentCoderClient:
         logger: AuditLogger,
         default_strategy: MultiAgentStrategy = MultiAgentStrategy.ALL,
         default_providers: Optional[List[str]] = None,
+        cost_tracker: Optional[CostTracker] = None,
     ):
         """Initialize multi-agent-coder client.
 
@@ -60,11 +64,13 @@ class MultiAgentCoderClient:
             logger: Audit logger instance
             default_strategy: Default routing strategy to use
             default_providers: List of providers to use (None = use all available)
+            cost_tracker: Optional cost tracker for tracking API costs
         """
         self.executable_path = Path(multi_agent_coder_path)
         self.logger = logger
         self.default_strategy = default_strategy
         self.default_providers = default_providers or []
+        self.cost_tracker = cost_tracker
 
         # Verify executable exists
         if not self.executable_path.exists():
@@ -142,6 +148,10 @@ class MultiAgentCoderClient:
             self.total_cost += response.total_cost
             for provider in response.providers:
                 self.provider_usage[provider] = self.provider_usage.get(provider, 0) + 1
+
+            # Track costs with cost tracker
+            if self.cost_tracker and response.success:
+                self._track_costs(response)
 
             self.logger.info(
                 "multi-agent-coder query completed",
@@ -609,6 +619,57 @@ Format your response as:
         self.total_tokens = 0
         self.total_cost = 0.0
         self.provider_usage.clear()
+
+    def _track_costs(self, response: MultiAgentResponse):
+        """Track costs with cost tracker.
+
+        Args:
+            response: Multi-agent response with cost information
+        """
+        if not self.cost_tracker:
+            return
+
+        # Track each provider's cost separately
+        if response.cost_by_provider and response.tokens_by_provider:
+            # Use detailed per-provider breakdown if available
+            self.cost_tracker.track_multi_agent_call(
+                provider_costs=response.cost_by_provider,
+                provider_tokens=response.tokens_by_provider,
+            )
+        else:
+            # Fallback: Distribute evenly across providers
+            num_providers = len(response.providers)
+            if num_providers == 0:
+                return
+
+            cost_per_provider = response.total_cost / num_providers
+            tokens_per_provider = response.total_tokens // num_providers
+
+            provider_costs = {}
+            provider_tokens = {}
+
+            for provider_name in response.providers:
+                # Map to cost tracker provider enum
+                try:
+                    provider = Provider(provider_name.lower())
+                    provider_costs[provider_name] = cost_per_provider
+                    provider_tokens[provider_name] = {
+                        "input": tokens_per_provider // 2,
+                        "output": tokens_per_provider // 2,
+                    }
+                except ValueError:
+                    # Skip unknown providers
+                    self.logger.warning(
+                        "Unknown provider in cost tracking",
+                        provider=provider_name,
+                    )
+                    continue
+
+            if provider_costs:
+                self.cost_tracker.track_multi_agent_call(
+                    provider_costs=provider_costs,
+                    provider_tokens=provider_tokens,
+                )
 
 
 @dataclass
