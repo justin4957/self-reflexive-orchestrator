@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..core.cache import LLMCache
 from ..core.logger import AuditLogger
 from ..safety.cost_tracker import CostTracker, Provider
 
@@ -56,6 +57,8 @@ class MultiAgentCoderClient:
         default_strategy: MultiAgentStrategy = MultiAgentStrategy.ALL,
         default_providers: Optional[List[str]] = None,
         cost_tracker: Optional[CostTracker] = None,
+        llm_cache: Optional[LLMCache] = None,
+        enable_cache: bool = True,
     ):
         """Initialize multi-agent-coder client.
 
@@ -65,12 +68,16 @@ class MultiAgentCoderClient:
             default_strategy: Default routing strategy to use
             default_providers: List of providers to use (None = use all available)
             cost_tracker: Optional cost tracker for tracking API costs
+            llm_cache: Optional LLM cache for response caching
+            enable_cache: Whether to enable caching
         """
         self.executable_path = Path(multi_agent_coder_path)
         self.logger = logger
         self.default_strategy = default_strategy
         self.default_providers = default_providers or []
         self.cost_tracker = cost_tracker
+        self.llm_cache = llm_cache
+        self.enable_cache = enable_cache
 
         # Verify executable exists
         if not self.executable_path.exists():
@@ -83,6 +90,8 @@ class MultiAgentCoderClient:
         self.total_tokens = 0
         self.total_cost = 0.0
         self.provider_usage: Dict[str, int] = {}
+        self.cache_hits = 0
+        self.cache_misses = 0
 
     def query(
         self,
@@ -90,6 +99,7 @@ class MultiAgentCoderClient:
         strategy: Optional[MultiAgentStrategy] = None,
         providers: Optional[List[str]] = None,
         timeout: int = 120,
+        use_cache: bool = True,
     ) -> MultiAgentResponse:
         """Query multi-agent-coder with a prompt.
 
@@ -98,6 +108,7 @@ class MultiAgentCoderClient:
             strategy: Routing strategy (defaults to instance default)
             providers: List of provider names to use (defaults to instance default)
             timeout: Timeout in seconds for the request
+            use_cache: Whether to use cache for this query
 
         Returns:
             MultiAgentResponse with results from all providers
@@ -108,6 +119,32 @@ class MultiAgentCoderClient:
         """
         strategy = strategy or self.default_strategy
         providers = providers or self.default_providers
+
+        # Check cache if enabled
+        if self.enable_cache and use_cache and self.llm_cache:
+            import hashlib
+
+            cache_key_data = {
+                "prompt": prompt,
+                "strategy": strategy.value,
+                "providers": sorted(providers) if providers else [],
+            }
+            cache_key = hashlib.sha256(
+                json.dumps(cache_key_data, sort_keys=True).encode()
+            ).hexdigest()
+            cache_key = f"multi_agent:{cache_key}"
+
+            cached_response = self.llm_cache.cache.get(cache_key)
+            if cached_response:
+                self.cache_hits += 1
+                self.logger.info(
+                    "multi-agent-coder cache hit",
+                    strategy=strategy.value,
+                    prompt_length=len(prompt),
+                )
+                return cached_response
+
+            self.cache_misses += 1
 
         # Build command
         cmd = [str(self.executable_path)]
@@ -152,6 +189,12 @@ class MultiAgentCoderClient:
             # Track costs with cost tracker
             if self.cost_tracker and response.success:
                 self._track_costs(response)
+
+            # Cache successful response
+            if self.enable_cache and use_cache and self.llm_cache and response.success:
+                self.llm_cache.cache.set(
+                    cache_key, response, ttl_seconds=86400, tags=["multi_agent"]
+                )
 
             self.logger.info(
                 "multi-agent-coder query completed",

@@ -9,6 +9,7 @@ from github.Issue import Issue
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
+from ..core.cache import GitHubAPICache
 from ..core.logger import AuditLogger
 from ..safety.rate_limiter import RateLimiter
 
@@ -22,6 +23,8 @@ class GitHubClient:
         repository: str,
         logger: AuditLogger,
         rate_limiter: Optional[RateLimiter] = None,
+        github_cache: Optional[GitHubAPICache] = None,
+        enable_cache: bool = True,
     ):
         """Initialize GitHub client.
 
@@ -30,15 +33,23 @@ class GitHubClient:
             repository: Repository in format "owner/repo"
             logger: Audit logger instance
             rate_limiter: Optional rate limiter for tracking API limits
+            github_cache: Optional GitHub API cache
+            enable_cache: Whether to enable caching
         """
         self.token = token
         self.repository_name = repository
         self.logger = logger
         self.rate_limiter = rate_limiter
+        self.github_cache = github_cache
+        self.enable_cache = enable_cache
 
         # Initialize GitHub client
         self.github = Github(token)
         self.repo: Repository = self.github.get_repo(repository)
+
+        # Cache statistics
+        self.cache_hits = 0
+        self.cache_misses = 0
 
         # Update rate limit after initialization
         self._update_rate_limit()
@@ -461,21 +472,49 @@ class GitHubClient:
             )
             raise
 
-    def get_file_contents(self, path: str, ref: Optional[str] = None) -> str:
+    def get_file_contents(
+        self, path: str, ref: Optional[str] = None, use_cache: bool = True
+    ) -> str:
         """Get contents of a file from the repository.
 
         Args:
             path: File path in repository
             ref: Branch/commit/tag reference (defaults to default branch)
+            use_cache: Whether to use cache for this request
 
         Returns:
             File contents as string
         """
+        ref_str = ref or "main"
+
+        # Check cache if enabled
+        if self.enable_cache and use_cache and self.github_cache:
+            cached_content = self.github_cache.get_file_content(
+                self.repository_name, path, ref_str
+            )
+            if cached_content is not None:
+                self.cache_hits += 1
+                self.logger.debug(
+                    "github_cache_hit", path=path, ref=ref_str, type="file_content"
+                )
+                return cached_content
+
+            self.cache_misses += 1
+
         try:
             contents = self.repo.get_contents(path, ref=ref or NotSet)
             if isinstance(contents, list):
                 raise ValueError(f"Path {path} is a directory, not a file")
-            return contents.decoded_content.decode("utf-8")
+
+            content_str = contents.decoded_content.decode("utf-8")
+
+            # Cache the content
+            if self.enable_cache and use_cache and self.github_cache:
+                self.github_cache.set_file_content(
+                    self.repository_name, path, ref_str, content_str, ttl_seconds=3600
+                )
+
+            return content_str
 
         except GithubException as e:
             self.logger.error(
