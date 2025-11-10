@@ -1477,6 +1477,234 @@ def approval_history(ctx, limit: int, json_output: bool):
         sys.exit(1)
 
 
+@cli.command("analytics")
+@click.option(
+    "--days",
+    type=int,
+    default=30,
+    help="Number of days to analyze (default: 30)",
+)
+@click.option(
+    "--json-output",
+    is_flag=True,
+    help="Output as JSON",
+)
+@click.pass_context
+def analytics(ctx, days: int, json_output: bool):
+    """Display success/failure analytics and insights.
+
+    Shows comprehensive analytics including:
+    - Overall success rates
+    - Issue processing statistics
+    - PR management metrics
+    - Cost analysis
+    - Common errors and failure patterns
+    - Optimization recommendations
+    """
+    try:
+        # Initialize orchestrator to get analytics components
+        orchestrator = Orchestrator(ctx.obj["config_path"])
+
+        # Generate insights summary
+        summary = orchestrator.insights_generator.generate_summary(days=days)
+
+        if json_output:
+            print(json.dumps(summary, indent=2, default=str))
+            return
+
+        console.print(
+            Panel.fit(f"📈 Analytics Report ({days} days)", style="bold blue")
+        )
+        console.print()
+
+        # Overall success rate
+        console.print("[bold]Overall Performance:[/bold]")
+        success_rate = summary["overall_success_rate"]
+        success_color = (
+            "green" if success_rate >= 80 else "yellow" if success_rate >= 60 else "red"
+        )
+        console.print(
+            f"  Success Rate: [{success_color}]{success_rate:.1f}%[/{success_color}]"
+        )
+        console.print()
+
+        # Operation counts
+        if summary["operation_counts"]:
+            console.print("[bold]Operation Counts:[/bold]")
+            op_table = Table(show_header=False)
+            op_table.add_column("Operation", style="cyan")
+            op_table.add_column("Count", justify="right")
+
+            for op_type, count in summary["operation_counts"].items():
+                op_table.add_row(op_type, str(count))
+
+            console.print(op_table)
+            console.print()
+
+        # Issue processing stats
+        issue_stats = summary["issue_processing"]
+        if issue_stats["total_issues"] > 0:
+            console.print("[bold]Issue Processing:[/bold]")
+            issue_table = Table(show_header=False)
+            issue_table.add_column("Metric", style="cyan")
+            issue_table.add_column("Value")
+
+            issue_table.add_row("Total Issues", str(issue_stats["total_issues"]))
+            issue_table.add_row(
+                "Success Rate",
+                f"[{'green' if issue_stats['success_rate'] >= 80 else 'yellow'}]{issue_stats['success_rate']:.1f}%[/]",
+            )
+            issue_table.add_row(
+                "Avg Complexity", f"{issue_stats['avg_complexity']:.1f}"
+            )
+            issue_table.add_row(
+                "Avg Files Changed", f"{issue_stats['avg_files_changed']:.1f}"
+            )
+            issue_table.add_row(
+                "Avg Lines Added", f"{issue_stats['avg_lines_added']:.0f}"
+            )
+            issue_table.add_row(
+                "Avg Tests Added", f"{issue_stats['avg_tests_added']:.1f}"
+            )
+            issue_table.add_row(
+                "Avg Completion Time",
+                f"{issue_stats['avg_completion_time'] / 60:.1f} minutes",
+            )
+
+            console.print(issue_table)
+            console.print()
+
+        # PR management stats
+        pr_stats = summary["pr_management"]
+        if pr_stats["total_prs"] > 0:
+            console.print("[bold]PR Management:[/bold]")
+            pr_table = Table(show_header=False)
+            pr_table.add_column("Metric", style="cyan")
+            pr_table.add_column("Value")
+
+            pr_table.add_row("Total PRs", str(pr_stats["total_prs"]))
+            pr_table.add_row("Merge Rate", f"{pr_stats['merge_rate']:.1f}%")
+            pr_table.add_row("CI Pass Rate", f"{pr_stats['ci_pass_rate']:.1f}%")
+            pr_table.add_row(
+                "Avg Time to Merge",
+                f"{pr_stats['avg_time_to_merge'] / 3600:.1f} hours",
+            )
+            pr_table.add_row("Avg CI Failures", f"{pr_stats['avg_ci_failures']:.1f}")
+
+            console.print(pr_table)
+            console.print()
+
+        # Cost analysis
+        cost_stats = summary["cost_analysis"]
+        if cost_stats["total_cost"] > 0:
+            console.print("[bold]Cost Analysis:[/bold]")
+            cost_table = Table(show_header=False)
+            cost_table.add_column("Metric", style="cyan")
+            cost_table.add_column("Value")
+
+            cost_table.add_row("Total Cost", f"${cost_stats['total_cost']:.2f}")
+            cost_table.add_row("Total Tokens", f"{cost_stats['total_tokens']:,}")
+
+            console.print(cost_table)
+
+            if cost_stats["by_provider"]:
+                console.print()
+                provider_table = Table(title="Cost by Provider", show_header=True)
+                provider_table.add_column("Provider", style="cyan")
+                provider_table.add_column("Model")
+                provider_table.add_column("Requests", justify="right")
+                provider_table.add_column("Tokens", justify="right")
+                provider_table.add_column("Cost", justify="right")
+
+                for prov in cost_stats["by_provider"]:
+                    provider_table.add_row(
+                        prov["provider"],
+                        prov["model"],
+                        str(prov["request_count"]),
+                        f"{prov['total_tokens']:,}",
+                        f"${prov['total_cost']:.4f}",
+                    )
+
+                console.print(provider_table)
+            console.print()
+
+        # Common errors
+        if summary["common_errors"]:
+            console.print("[bold]Common Errors:[/bold]")
+            error_table = Table(show_header=True)
+            error_table.add_column("Error Type", style="red")
+            error_table.add_column("Count", justify="right")
+            error_table.add_column("Operation")
+
+            for error in summary["common_errors"]:
+                error_table.add_row(
+                    error["error_type"],
+                    str(error["count"]),
+                    error["operation_type"],
+                )
+
+            console.print(error_table)
+            console.print()
+
+        # Get insights and recommendations
+        console.print("[bold]Failure Patterns:[/bold]")
+        patterns = orchestrator.insights_generator.identify_failure_patterns(days=days)
+        if patterns:
+            for pattern in patterns:
+                console.print(f"  • [yellow]{pattern['pattern']}[/yellow]")
+                console.print(f"    Recommendation: {pattern['recommendation']}")
+        else:
+            console.print("  [green]No significant failure patterns detected[/green]")
+        console.print()
+
+        console.print("[bold]Optimization Recommendations:[/bold]")
+        recommendations = orchestrator.insights_generator.recommend_optimizations(
+            days=days
+        )
+        if recommendations:
+            for rec in recommendations:
+                console.print(f"  • {rec}")
+        else:
+            console.print("  [green]System is operating optimally[/green]")
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command("db-stats")
+@click.pass_context
+def db_stats(ctx):
+    """Show database statistics.
+
+    Displays row counts for all analytics tables.
+    """
+    try:
+        # Initialize orchestrator to get database
+        orchestrator = Orchestrator(ctx.obj["config_path"])
+
+        console.print(Panel.fit("🗄️  Database Statistics", style="bold blue"))
+        console.print()
+
+        stats = orchestrator.database.get_table_stats()
+
+        table = Table(show_header=True)
+        table.add_column("Table", style="cyan")
+        table.add_column("Rows", justify="right")
+
+        for table_name, count in stats.items():
+            table.add_row(table_name, f"{count:,}")
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]✗ Error: {e}[/red]", style="bold red")
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     cli(obj={})

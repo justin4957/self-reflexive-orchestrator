@@ -16,7 +16,9 @@ from ..integrations.git_ops import GitOps
 from ..integrations.github_client import GitHubClient
 from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
 from ..integrations.test_runner import TestRunner
+from .analytics import AnalyticsCollector, InsightsGenerator, OperationTracker
 from .config import Config, ConfigManager
+from .database import Database
 from .logger import AuditLogger, EventType, setup_logging
 from .state import OrchestratorState, StateManager
 
@@ -55,6 +57,9 @@ class Orchestrator:
         # Set up workspace
         self.workspace = Path(self.config.orchestrator.work_dir)
         self.workspace.mkdir(parents=True, exist_ok=True)
+
+        # Initialize Phase 6 analytics (database and tracking)
+        self._initialize_analytics()
 
         # Initialize Phase 2 components
         self._initialize_phase2_components()
@@ -164,6 +169,35 @@ class Orchestrator:
 
         except Exception as e:
             self.logger.error("Error checking for issues", error=str(e), exc_info=True)
+
+    def _initialize_analytics(self):
+        """Initialize Phase 6 analytics and tracking components."""
+        self.logger.info("Initializing Phase 6 analytics")
+
+        # Initialize database
+        db_path = self.workspace / "analytics.db"
+        self.database = Database(
+            db_path=str(db_path),
+            logger=self.logger,
+        )
+
+        # Initialize analytics components
+        self.operation_tracker = OperationTracker(
+            database=self.database,
+            logger=self.logger,
+        )
+
+        self.analytics_collector = AnalyticsCollector(
+            database=self.database,
+            logger=self.logger,
+        )
+
+        self.insights_generator = InsightsGenerator(
+            analytics=self.analytics_collector,
+            logger=self.logger,
+        )
+
+        self.logger.info("Phase 6 analytics initialized successfully")
 
     def _initialize_phase2_components(self):
         """Initialize all Phase 2 components for issue processing workflow."""
@@ -297,38 +331,87 @@ class Orchestrator:
                     self.state_manager.update_work_item(work_item)
 
                     # Process through Phase 2 workflow
+                    issue_number = work_item.metadata.get(
+                        "issue_number", work_item.item_id
+                    )
                     self.logger.info(
                         f"Processing work item {work_item.item_id} through Phase 2 workflow",
                         work_item_id=work_item.item_id,
-                        issue_number=work_item.metadata.get(
-                            "issue_number", work_item.item_id
-                        ),
+                        issue_number=issue_number,
                     )
 
-                    result = self.issue_processor.process_work_item(work_item)
+                    # Track operation start
+                    operation_db_id = self.operation_tracker.start_operation(
+                        operation_type="process_issue",
+                        operation_id=str(issue_number),
+                        context={
+                            "work_item_id": work_item.item_id,
+                            "title": work_item.metadata.get("title"),
+                        },
+                    )
 
-                    # Log result
-                    if result.success:
-                        self.logger.info(
-                            f"Successfully processed work item {work_item.item_id}",
-                            work_item_id=work_item.item_id,
-                            pr_created=result.pr_created,
-                            pr_number=result.pr_number,
-                            total_time=result.total_time,
+                    try:
+                        result = self.issue_processor.process_work_item(work_item)
+
+                        # Track operation completion
+                        self.operation_tracker.complete_operation(
+                            operation_db_id=operation_db_id,
+                            success=result.success,
+                            error_message=result.error if not result.success else None,
+                            error_type=(
+                                result.final_stage.value if not result.success else None
+                            ),
                         )
 
-                        # Update work item to completed
-                        work_item.state = "completed"
-                        self.state_manager.update_work_item(work_item)
-                    else:
-                        self.logger.warning(
-                            f"Failed to process work item {work_item.item_id}",
-                            work_item_id=work_item.item_id,
-                            error=result.error,
-                            final_stage=result.final_stage.value,
-                        )
+                        # Log result
+                        if result.success:
+                            self.logger.info(
+                                f"Successfully processed work item {work_item.item_id}",
+                                work_item_id=work_item.item_id,
+                                pr_created=result.pr_created,
+                                pr_number=result.pr_number,
+                                total_time=result.total_time,
+                            )
 
-                        # Work item state already updated by issue_processor
+                            # Track issue processing metrics
+                            if result.pr_created and result.pr_number:
+                                self.operation_tracker.track_issue_processing(
+                                    operation_db_id=operation_db_id,
+                                    issue_number=int(issue_number),
+                                    success=True,
+                                    time_to_completion_seconds=result.total_time,
+                                )
+
+                            # Update work item to completed
+                            work_item.state = "completed"
+                            self.state_manager.update_work_item(work_item)
+                        else:
+                            self.logger.warning(
+                                f"Failed to process work item {work_item.item_id}",
+                                work_item_id=work_item.item_id,
+                                error=result.error,
+                                final_stage=result.final_stage.value,
+                            )
+
+                            # Track failed issue processing
+                            self.operation_tracker.track_issue_processing(
+                                operation_db_id=operation_db_id,
+                                issue_number=int(issue_number),
+                                success=False,
+                                failure_reason=result.error,
+                            )
+
+                            # Work item state already updated by issue_processor
+
+                    except Exception as inner_e:
+                        # Track operation failure
+                        self.operation_tracker.complete_operation(
+                            operation_db_id=operation_db_id,
+                            success=False,
+                            error_message=str(inner_e),
+                            error_type="exception",
+                        )
+                        raise
 
                 except Exception as e:
                     self.logger.error(
@@ -414,6 +497,16 @@ class Orchestrator:
             status["phase2_stats"] = {
                 "issue_monitor": self.issue_monitor.get_statistics(),
                 "issue_processor": self.issue_processor.get_statistics(),
+            }
+
+        # Add Phase 6 analytics if components are initialized
+        if hasattr(self, "analytics_collector"):
+            status["analytics"] = {
+                "success_rate_30d": self.analytics_collector.get_success_rate(days=30),
+                "operation_counts_30d": self.analytics_collector.get_operation_counts(
+                    days=30
+                ),
+                "database_stats": self.database.get_table_stats(),
             }
 
         return status
