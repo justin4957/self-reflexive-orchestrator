@@ -57,7 +57,9 @@ class TestImplementationPlanner(unittest.TestCase):
         branch_name = self.planner._generate_branch_name(mock_issue)
 
         self.assertTrue(branch_name.startswith("orchestrator/issue-100-"))
-        self.assertLessEqual(len(branch_name), 80)  # Allow for "orchestrator/issue-100-" prefix
+        self.assertLessEqual(
+            len(branch_name), 80
+        )  # Allow for "orchestrator/issue-100-" prefix
 
     def test_generate_branch_name_special_chars(self):
         """Test branch name generation with special characters."""
@@ -86,7 +88,7 @@ class TestImplementationPlanner(unittest.TestCase):
                 "deepseek": """
                 Modify: `src/auth/login.py`
                 Modify: `tests/unit/test_auth.py`
-                """
+                """,
             },
             strategy="all",
             total_tokens=1000,
@@ -151,25 +153,25 @@ class TestImplementationPlanner(unittest.TestCase):
         """Test merging similar steps from different providers."""
         all_steps = [
             {
-                'step_number': 1,
-                'description': "Create analyzer class",
-                'files_affected': ["src/analyzer.py"],
-                'complexity': 5,
-                'provider': 'anthropic'
+                "step_number": 1,
+                "description": "Create analyzer class",
+                "files_affected": ["src/analyzer.py"],
+                "complexity": 5,
+                "provider": "anthropic",
             },
             {
-                'step_number': 1,
-                'description': "Create analyzer class with validation",
-                'files_affected': ["src/analyzer.py", "src/validator.py"],
-                'complexity': 6,
-                'provider': 'deepseek'
+                "step_number": 1,
+                "description": "Create analyzer class with validation",
+                "files_affected": ["src/analyzer.py", "src/validator.py"],
+                "complexity": 6,
+                "provider": "deepseek",
             },
             {
-                'step_number': 2,
-                'description': "Add tests",
-                'files_affected': ["tests/test_analyzer.py"],
-                'complexity': 3,
-                'provider': 'anthropic'
+                "step_number": 2,
+                "description": "Add tests",
+                "files_affected": ["tests/test_analyzer.py"],
+                "complexity": 3,
+                "provider": "anthropic",
             },
         ]
 
@@ -205,7 +207,9 @@ class TestImplementationPlanner(unittest.TestCase):
 
         self.assertIn("tests/unit/test_planner.py", strategy.unit_tests_to_create)
         self.assertIn("tests/unit/test_executor.py", strategy.unit_tests_to_create)
-        self.assertIn("tests/integration/test_full_cycle.py", strategy.integration_tests_to_create)
+        self.assertIn(
+            "tests/integration/test_full_cycle.py", strategy.integration_tests_to_create
+        )
 
     def test_extract_validation_criteria(self):
         """Test extracting validation criteria from responses."""
@@ -280,21 +284,13 @@ class TestImplementationPlanner(unittest.TestCase):
     def test_get_confidence_level(self):
         """Test confidence level enum mapping."""
         self.assertEqual(
-            self.planner._get_confidence_level(0.95),
-            PlanConfidence.VERY_HIGH
+            self.planner._get_confidence_level(0.95), PlanConfidence.VERY_HIGH
         )
+        self.assertEqual(self.planner._get_confidence_level(0.85), PlanConfidence.HIGH)
         self.assertEqual(
-            self.planner._get_confidence_level(0.85),
-            PlanConfidence.HIGH
+            self.planner._get_confidence_level(0.70), PlanConfidence.MEDIUM
         )
-        self.assertEqual(
-            self.planner._get_confidence_level(0.70),
-            PlanConfidence.MEDIUM
-        )
-        self.assertEqual(
-            self.planner._get_confidence_level(0.40),
-            PlanConfidence.LOW
-        )
+        self.assertEqual(self.planner._get_confidence_level(0.40), PlanConfidence.LOW)
 
     def test_calculate_total_complexity(self):
         """Test total complexity calculation."""
@@ -424,7 +420,7 @@ class TestImplementationPlanner(unittest.TestCase):
                 3. Write tests (complexity: 3)
 
                 Total complexity: 6
-                """
+                """,
             },
             strategy="all",
             total_tokens=5000,
@@ -589,9 +585,7 @@ class TestImplementationPlanner(unittest.TestCase):
             branch_name="orchestrator/issue-1-test",
             files_to_modify=["src/main.py"],
             files_to_create=["src/new.py"],
-            implementation_steps=[
-                ImplementationStep(1, "Step 1", [], 3)
-            ],
+            implementation_steps=[ImplementationStep(1, "Step 1", [], 3)],
             test_strategy=TestStrategy([], [], [], [], "Maintain coverage"),
             pr_title="Test PR",
             pr_description="Test description",
@@ -620,5 +614,5 @@ class TestImplementationPlanner(unittest.TestCase):
         self.assertEqual(PlanConfidence.VERY_HIGH.value, "very_high")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

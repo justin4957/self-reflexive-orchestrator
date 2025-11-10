@@ -29,6 +29,7 @@ from ..core.logger import AuditLogger, EventType
 
 class CIFailureCategory(Enum):
     """Categories of CI failures."""
+
     LINT_ERROR = "lint_error"  # Code style, formatting issues
     BUILD_ERROR = "build_error"  # Compilation, syntax errors
     TYPE_ERROR = "type_error"  # Type checking failures
@@ -43,6 +44,7 @@ class CIFailureCategory(Enum):
 @dataclass
 class CIFailureDetails:
     """Details about a specific CI failure."""
+
     check_name: str
     failure_category: CIFailureCategory
     error_messages: List[str]
@@ -65,6 +67,7 @@ class CIFailureDetails:
 @dataclass
 class CIFixSuggestion:
     """Suggested fix for a CI failure."""
+
     description: str
     file_paths: List[str]
     proposed_changes: str  # Actual code/config changes
@@ -89,6 +92,7 @@ class CIFixSuggestion:
 @dataclass
 class CIFailureAnalysis:
     """Complete analysis of CI failures."""
+
     pr_number: int
     ci_status: CIStatus
     failures: List[CIFailureDetails]
@@ -208,14 +212,18 @@ class CIFailureAnalyzer:
 
             if escalation_needed:
                 categories = [f.failure_category.value for f in non_fixable]
-                escalation_reason = f"Non-fixable failures: {', '.join(set(categories))}"
+                escalation_reason = (
+                    f"Non-fixable failures: {', '.join(set(categories))}"
+                )
                 self.escalated_failures += 1
             elif overall_fixable:
                 self.fixable_failures += 1
 
             # Calculate overall confidence
             if failure_details:
-                analysis_confidence = sum(f.confidence for f in failure_details) / len(failure_details)
+                analysis_confidence = sum(f.confidence for f in failure_details) / len(
+                    failure_details
+                )
             else:
                 analysis_confidence = 0.0
 
@@ -292,7 +300,9 @@ class CIFailureAnalyzer:
             confidence=confidence,
         )
 
-    def _categorize_failure(self, check_name: str, log_output: str) -> CIFailureCategory:
+    def _categorize_failure(
+        self, check_name: str, log_output: str
+    ) -> CIFailureCategory:
         """Categorize failure based on check name and log content.
 
         Args:
@@ -497,24 +507,28 @@ class CIFailureAnalyzer:
         # For now, create a generic suggestion
         # In future, could use multi-agent-coder to generate specific fixes
         if failure.failure_category == CIFailureCategory.LINT_ERROR:
-            suggestions.append(CIFixSuggestion(
-                description="Run linter and apply auto-fixes",
-                file_paths=[],  # Will be determined from errors
-                proposed_changes="Run: black . && flake8 --extend-ignore=E203,W503",
-                success_probability=0.9,
-                rationale="Lint errors are typically auto-fixable with formatters",
-                fix_category="lint",
-            ))
+            suggestions.append(
+                CIFixSuggestion(
+                    description="Run linter and apply auto-fixes",
+                    file_paths=[],  # Will be determined from errors
+                    proposed_changes="Run: black . && flake8 --extend-ignore=E203,W503",
+                    success_probability=0.9,
+                    rationale="Lint errors are typically auto-fixable with formatters",
+                    fix_category="lint",
+                )
+            )
 
         elif failure.failure_category == CIFailureCategory.IMPORT_ERROR:
-            suggestions.append(CIFixSuggestion(
-                description="Add missing imports or dependencies",
-                file_paths=[],
-                proposed_changes="Analyze import errors and add missing imports",
-                success_probability=0.7,
-                rationale="Import errors usually require adding imports or installing packages",
-                fix_category="import",
-            ))
+            suggestions.append(
+                CIFixSuggestion(
+                    description="Add missing imports or dependencies",
+                    file_paths=[],
+                    proposed_changes="Analyze import errors and add missing imports",
+                    success_probability=0.7,
+                    rationale="Import errors usually require adding imports or installing packages",
+                    fix_category="import",
+                )
+            )
 
         # For other categories, would need more sophisticated analysis
         # Could delegate to multi-agent-coder here

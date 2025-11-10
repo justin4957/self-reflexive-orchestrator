@@ -9,6 +9,7 @@ from dataclasses import dataclass, asdict, field
 
 class OrchestratorState(Enum):
     """States of the orchestrator."""
+
     IDLE = "idle"
     MONITORING = "monitoring"
     ANALYZING_ISSUE = "analyzing_issue"
@@ -28,6 +29,7 @@ class OrchestratorState(Enum):
 @dataclass
 class WorkItem:
     """Represents a work item being processed."""
+
     item_type: str  # "issue", "pr", "roadmap"
     item_id: str
     state: str
@@ -207,7 +209,9 @@ class StateManager:
 
         return [item for item in items if item.state == "pending"]
 
-    def get_in_progress_work_items(self, item_type: Optional[str] = None) -> list[WorkItem]:
+    def get_in_progress_work_items(
+        self, item_type: Optional[str] = None
+    ) -> list[WorkItem]:
         """Get all in-progress work items.
 
         Args:
@@ -233,10 +237,18 @@ class StateManager:
             "current_state": self.current_state.value,
             "work_items": {
                 "total": len(self.work_items),
-                "pending": len([i for i in self.work_items.values() if i.state == "pending"]),
-                "in_progress": len([i for i in self.work_items.values() if i.state == "in_progress"]),
-                "completed": len([i for i in self.work_items.values() if i.state == "completed"]),
-                "failed": len([i for i in self.work_items.values() if i.state == "failed"]),
+                "pending": len(
+                    [i for i in self.work_items.values() if i.state == "pending"]
+                ),
+                "in_progress": len(
+                    [i for i in self.work_items.values() if i.state == "in_progress"]
+                ),
+                "completed": len(
+                    [i for i in self.work_items.values() if i.state == "completed"]
+                ),
+                "failed": len(
+                    [i for i in self.work_items.values() if i.state == "failed"]
+                ),
             },
             "last_transition": self.state_history[-1] if self.state_history else None,
         }

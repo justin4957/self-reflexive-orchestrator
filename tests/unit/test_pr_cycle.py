@@ -265,7 +265,9 @@ class TestPRCreator(unittest.TestCase):
         result = self.pr_creator._push_branch("feature/test")
 
         self.assertTrue(result)
-        self.git_ops.push_branch.assert_called_once_with("feature/test", set_upstream=True)
+        self.git_ops.push_branch.assert_called_once_with(
+            "feature/test", set_upstream=True
+        )
 
     def test_push_branch_failure(self):
         """Test failed branch push."""
@@ -302,7 +304,9 @@ class TestPRCreator(unittest.TestCase):
         self.pr_creator._request_reviews(123, ["reviewer1", "reviewer2"])
 
         self.github_client.get_pull_request.assert_called_once_with(123)
-        mock_pr.create_review_request.assert_called_once_with(reviewers=["reviewer1", "reviewer2"])
+        mock_pr.create_review_request.assert_called_once_with(
+            reviewers=["reviewer1", "reviewer2"]
+        )
 
     def test_request_reviews_failure(self):
         """Test review request failure handling."""
@@ -754,7 +758,7 @@ class TestCIMonitor(unittest.TestCase):
         self.assertEqual(status.total_checks, 0)
         self.logger.error.assert_called_once()
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_wait_for_ci_immediate_pass(self, mock_sleep):
         """Test wait_for_ci when checks pass immediately."""
         self.github_client.get_pr_checks.return_value = {
@@ -772,7 +776,7 @@ class TestCIMonitor(unittest.TestCase):
         self.assertEqual(self.ci_monitor.prs_passed, 1)
         mock_sleep.assert_not_called()
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_wait_for_ci_no_checks(self, mock_sleep):
         """Test wait_for_ci when no checks are present."""
         self.github_client.get_pr_checks.return_value = {"checks": []}
@@ -783,7 +787,7 @@ class TestCIMonitor(unittest.TestCase):
         self.assertEqual(result.ci_status.overall_status, "no_checks")
         self.assertEqual(self.ci_monitor.prs_passed, 1)
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_wait_for_ci_eventual_pass(self, mock_sleep):
         """Test wait_for_ci when checks eventually pass."""
         # First call: pending
@@ -808,7 +812,7 @@ class TestCIMonitor(unittest.TestCase):
         self.assertEqual(self.ci_monitor.prs_passed, 1)
         mock_sleep.assert_called_once_with(1)
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_wait_for_ci_failure(self, mock_sleep):
         """Test wait_for_ci when checks fail."""
         self.github_client.get_pr_checks.return_value = {
@@ -825,7 +829,7 @@ class TestCIMonitor(unittest.TestCase):
         self.assertIn("1 of 2 checks failed", result.error)
         self.assertEqual(self.ci_monitor.prs_failed, 1)
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_wait_for_ci_timeout(self, mock_sleep):
         """Test wait_for_ci timeout behavior."""
         # Always return pending checks
@@ -843,7 +847,7 @@ class TestCIMonitor(unittest.TestCase):
         self.assertIn("timed out", result.error)
         self.assertEqual(self.ci_monitor.prs_timed_out, 1)
 
-    @patch('time.sleep')
+    @patch("time.sleep")
     def test_wait_for_ci_exception_handling(self, mock_sleep):
         """Test wait_for_ci handles exceptions."""
         self.github_client.get_pr_checks.side_effect = Exception("API error")
@@ -913,5 +917,5 @@ class TestCIMonitor(unittest.TestCase):
         self.assertEqual(self.ci_monitor.prs_timed_out, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ from structlog.stdlib import BoundLogger
 
 class EventType(Enum):
     """Types of events to audit."""
+
     # Issue cycle events
     ISSUE_CLAIMED = "issue_claimed"
     ISSUE_ANALYZED = "issue_analyzed"
@@ -27,6 +28,8 @@ class EventType(Enum):
     PR_UPDATED = "pr_updated"
     PR_CI_PASSED = "pr_ci_passed"
     PR_CI_FAILED = "pr_ci_failed"
+    PR_REVIEWED = "pr_reviewed"
+    PR_REVIEW_FAILED = "pr_review_failed"
     PR_REVIEW_REQUESTED = "pr_review_requested"
     PR_REVIEW_COMPLETED = "pr_review_completed"
     PR_MERGED = "pr_merged"
@@ -225,7 +228,9 @@ class AuditLogger:
             metadata=kwargs,
         )
 
-    def issue_claimed(self, issue_number: int, issue_title: str, complexity: Optional[int] = None):
+    def issue_claimed(
+        self, issue_number: int, issue_title: str, complexity: Optional[int] = None
+    ):
         """Audit: Issue claimed for processing."""
         self.audit(
             EventType.ISSUE_CLAIMED,
@@ -235,7 +240,13 @@ class AuditLogger:
             metadata={"title": issue_title, "complexity": complexity},
         )
 
-    def pr_created(self, pr_number: int, pr_title: str, branch: str, issue_number: Optional[int] = None):
+    def pr_created(
+        self,
+        pr_number: int,
+        pr_title: str,
+        branch: str,
+        issue_number: Optional[int] = None,
+    ):
         """Audit: Pull request created."""
         self.audit(
             EventType.PR_CREATED,
@@ -270,7 +281,11 @@ class AuditLogger:
         comments: Optional[str] = None,
     ):
         """Audit: Code review completed."""
-        event = EventType.CODE_REVIEW_APPROVED if approved else EventType.CODE_REVIEW_REJECTED
+        event = (
+            EventType.CODE_REVIEW_APPROVED
+            if approved
+            else EventType.CODE_REVIEW_REJECTED
+        )
         self.audit(
             event,
             f"Code review {'approved' if approved else 'rejected'} for PR #{pr_number}",
@@ -318,7 +333,9 @@ class AuditLogger:
             },
         )
 
-    def state_changed(self, from_state: str, to_state: str, reason: Optional[str] = None):
+    def state_changed(
+        self, from_state: str, to_state: str, reason: Optional[str] = None
+    ):
         """Audit: Orchestrator state changed."""
         self.audit(
             EventType.STATE_CHANGED,

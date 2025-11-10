@@ -113,7 +113,7 @@ Affected files:
 
         self.assertGreater(len(files), 0)
         # Should extract Python file paths
-        self.assertTrue(any('.py' in f for f in files))
+        self.assertTrue(any(".py" in f for f in files))
 
     def test_extract_risks(self):
         """Test risks extraction."""
@@ -251,7 +251,7 @@ Risks:
                 Requirements:
                 - Fix authentication
                 - Add tests
-                """
+                """,
             },
             strategy="all",
             total_tokens=5000,
@@ -412,9 +412,7 @@ Risks:
         # Mock response with high complexity
         mock_response = MultiAgentResponse(
             providers=["anthropic"],
-            responses={
-                "anthropic": "Complexity: 9\nActionability: yes"
-            },
+            responses={"anthropic": "Complexity: 9\nActionability: yes"},
             strategy="all",
             total_tokens=2000,
             total_cost=0.02,
@@ -429,5 +427,5 @@ Risks:
         self.assertEqual(self.analyzer.complexity_rejected_count, 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

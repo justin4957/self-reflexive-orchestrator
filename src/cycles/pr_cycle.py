@@ -1,7 +1,7 @@
 """PR creation and management cycle.
 
 Handles creating pull requests with comprehensive descriptions,
-linking to issues, managing labels and reviewers.
+linking to issues, managing labels and reviewers, and code review integration.
 """
 
 from typing import List, Optional, Dict, Any
@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 
 from ..integrations.git_ops import GitOps
 from ..integrations.github_client import GitHubClient
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    PRReviewResult,
+    ReviewComment,
+)
 from ..analyzers.implementation_planner import ImplementationPlan
 from ..integrations.test_runner import TestResult
 from ..core.logger import AuditLogger, EventType
@@ -20,6 +25,7 @@ from ..core.state import WorkItem
 @dataclass
 class PRDetails:
     """Details for creating a pull request."""
+
     title: str
     body: str
     head_branch: str
@@ -46,6 +52,7 @@ class PRDetails:
 @dataclass
 class PRCreationResult:
     """Result of PR creation."""
+
     pr_number: int
     pr_url: str
     success: bool
@@ -235,7 +242,9 @@ Closes #{issue_number}
 
             self.logger.error(
                 "Failed to create PR",
-                issue_number=issue_number if 'issue_number' in locals() else work_item.item_id,
+                issue_number=(
+                    issue_number if "issue_number" in locals() else work_item.item_id
+                ),
                 error=str(e),
                 exc_info=True,
             )
@@ -244,8 +253,8 @@ Closes #{issue_number}
                 pr_number=0,
                 pr_url="",
                 success=False,
-                branch_pushed=branch_pushed if 'branch_pushed' in locals() else False,
-                pr_details=pr_details if 'pr_details' in locals() else None,
+                branch_pushed=branch_pushed if "branch_pushed" in locals() else False,
+                pr_details=pr_details if "pr_details" in locals() else None,
                 error=str(e),
             )
 
@@ -347,7 +356,9 @@ Closes #{issue_number}
         test_results = self._format_test_results(test_result)
 
         # Implementation details
-        implementation_details = self._format_implementation_details(plan, additional_context)
+        implementation_details = self._format_implementation_details(
+            plan, additional_context
+        )
 
         issue_number = work_item.metadata.get("issue_number", int(work_item.item_id))
 
@@ -437,12 +448,18 @@ Closes #{issue_number}
 
         # Add test strategy
         if plan.test_strategy:
-            lines.append(f"\n**Test Strategy:** {plan.test_strategy.coverage_requirements}")
+            lines.append(
+                f"\n**Test Strategy:** {plan.test_strategy.coverage_requirements}"
+            )
 
         # Add complexity estimate
         if plan.estimated_total_complexity > 0:
-            complexity_level = plan.confidence_level.value if plan.confidence_level else "unknown"
-            lines.append(f"\n**Complexity:** {plan.estimated_total_complexity}/10 ({complexity_level} confidence)")
+            complexity_level = (
+                plan.confidence_level.value if plan.confidence_level else "unknown"
+            )
+            lines.append(
+                f"\n**Complexity:** {plan.estimated_total_complexity}/10 ({complexity_level} confidence)"
+            )
 
         # Add additional context
         if additional_context:
@@ -529,7 +546,9 @@ Closes #{issue_number}
         try:
             pr = self.github_client.get_pull_request(pr_number)
             pr.create_review_request(reviewers=reviewers)
-            self.logger.debug("Requested reviews for PR", pr_number=pr_number, reviewers=reviewers)
+            self.logger.debug(
+                "Requested reviews for PR", pr_number=pr_number, reviewers=reviewers
+            )
         except Exception as e:
             self.logger.warning(
                 "Failed to request reviews",
@@ -567,9 +586,12 @@ Closes #{issue_number}
 @dataclass
 class CICheckStatus:
     """Status of a single CI check."""
+
     name: str
     status: str  # queued, in_progress, completed
-    conclusion: Optional[str] = None  # success, failure, neutral, cancelled, skipped, timed_out, action_required
+    conclusion: Optional[str] = (
+        None  # success, failure, neutral, cancelled, skipped, timed_out, action_required
+    )
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     details_url: Optional[str] = None
@@ -580,7 +602,11 @@ class CICheckStatus:
 
     def is_failing(self) -> bool:
         """Check if this CI check is failing."""
-        return self.status == "completed" and self.conclusion in ["failure", "timed_out", "action_required"]
+        return self.status == "completed" and self.conclusion in [
+            "failure",
+            "timed_out",
+            "action_required",
+        ]
 
     def is_pending(self) -> bool:
         """Check if this CI check is still pending."""
@@ -590,6 +616,7 @@ class CICheckStatus:
 @dataclass
 class CIStatus:
     """Overall CI status for a PR."""
+
     overall_status: str  # passed, failed, pending, no_checks
     checks: List[CICheckStatus] = field(default_factory=list)
     total_checks: int = 0
@@ -633,6 +660,7 @@ class CIStatus:
 @dataclass
 class CIMonitorResult:
     """Result of CI monitoring."""
+
     pr_number: int
     ci_status: CIStatus
     success: bool
@@ -893,6 +921,7 @@ class CIMonitor:
 
                 # Wait before next poll
                 import time
+
                 time.sleep(self.poll_interval)
 
                 # Refresh status
@@ -928,6 +957,7 @@ class CIMonitor:
 
         try:
             from dateutil import parser
+
             return parser.parse(dt_str)
         except Exception:
             return None
@@ -965,3 +995,443 @@ class CIMonitor:
         self.prs_passed = 0
         self.prs_failed = 0
         self.prs_timed_out = 0
+
+
+@dataclass
+class CodeReviewResult:
+    """Result of code review process."""
+
+    pr_number: int
+    review_result: PRReviewResult
+    success: bool
+    work_item_updated: bool = False
+    github_comment_posted: bool = False
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "pr_number": self.pr_number,
+            "review_result": (
+                self.review_result.to_dict() if self.review_result else None
+            ),
+            "success": self.success,
+            "work_item_updated": self.work_item_updated,
+            "github_comment_posted": self.github_comment_posted,
+            "error": self.error,
+        }
+
+
+class CodeReviewer:
+    """Integrates multi-agent-coder for automated code review.
+
+    Responsibilities:
+    - Execute multi-agent-coder on PR branches
+    - Pass PR context (diff, files changed, description)
+    - Parse and structure review results
+    - Post review feedback to GitHub
+    - Update work items with review status
+    - Log reviews to audit trail
+    """
+
+    def __init__(
+        self,
+        multi_agent_client: MultiAgentCoderClient,
+        github_client: GitHubClient,
+        git_ops: GitOps,
+        logger: AuditLogger,
+        review_timeout: int = 600,
+    ):
+        """Initialize code reviewer.
+
+        Args:
+            multi_agent_client: Multi-agent-coder client
+            github_client: GitHub API client
+            git_ops: Git operations client
+            logger: Audit logger
+            review_timeout: Timeout for reviews in seconds
+        """
+        self.multi_agent_client = multi_agent_client
+        self.github_client = github_client
+        self.git_ops = git_ops
+        self.logger = logger
+        self.review_timeout = review_timeout
+
+        # Statistics
+        self.total_reviews = 0
+        self.approved_reviews = 0
+        self.rejected_reviews = 0
+        self.failed_reviews = 0
+
+    def review_pull_request(
+        self,
+        pr_number: int,
+        work_item: Optional[WorkItem] = None,
+        post_comment: bool = True,
+    ) -> CodeReviewResult:
+        """Review a pull request using multi-agent-coder.
+
+        Args:
+            pr_number: PR number to review
+            work_item: Optional work item to update with review status
+            post_comment: Whether to post review as GitHub comment
+
+        Returns:
+            CodeReviewResult with review outcome
+        """
+        self.logger.info(
+            "Starting code review",
+            pr_number=pr_number,
+            reviewer="multi-agent-coder",
+        )
+
+        self.total_reviews += 1
+
+        try:
+            # Fetch PR details from GitHub
+            pr = self.github_client.get_pull_request(pr_number)
+            pr_description = pr.body or ""
+
+            # Get PR diff
+            pr_diff = self._get_pr_diff(pr_number)
+
+            # Get list of changed files
+            files_changed = self._get_changed_files(pr_number)
+
+            # Execute review using multi-agent-coder
+            review_result = self.multi_agent_client.review_pull_request(
+                pr_diff=pr_diff,
+                pr_description=pr_description,
+                files_changed=files_changed,
+                pr_number=pr_number,
+                timeout=self.review_timeout,
+            )
+
+            # Update statistics
+            if review_result.approved:
+                self.approved_reviews += 1
+            else:
+                self.rejected_reviews += 1
+
+            # Post review comment to GitHub if requested
+            github_comment_posted = False
+            if post_comment:
+                github_comment_posted = self._post_review_comment(
+                    pr_number, review_result
+                )
+
+            # Update work item if provided
+            work_item_updated = False
+            if work_item:
+                work_item_updated = self._update_work_item(work_item, review_result)
+
+            # Log review to audit trail
+            self.logger.audit(
+                (
+                    EventType.PR_REVIEWED
+                    if review_result.approved
+                    else EventType.PR_REVIEW_FAILED
+                ),
+                f"Code review {'approved' if review_result.approved else 'requested changes'} for PR #{pr_number}",
+                resource_type="pr",
+                resource_id=str(pr_number),
+                metadata={
+                    "approved": review_result.approved,
+                    "reviewer": review_result.reviewer,
+                    "providers_reviewed": review_result.providers_reviewed,
+                    "approval_count": review_result.approval_count,
+                    "total_reviewers": review_result.total_reviewers,
+                    "comments_count": len(review_result.comments),
+                    "total_tokens": review_result.total_tokens,
+                    "total_cost": review_result.total_cost,
+                },
+            )
+
+            return CodeReviewResult(
+                pr_number=pr_number,
+                review_result=review_result,
+                success=True,
+                work_item_updated=work_item_updated,
+                github_comment_posted=github_comment_posted,
+            )
+
+        except Exception as e:
+            self.failed_reviews += 1
+            self.logger.error(
+                "Code review failed",
+                pr_number=pr_number,
+                error=str(e),
+                exc_info=True,
+            )
+
+            return CodeReviewResult(
+                pr_number=pr_number,
+                review_result=None,
+                success=False,
+                error=str(e),
+            )
+
+    def _get_pr_diff(self, pr_number: int) -> str:
+        """Get full diff for a PR.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            Full PR diff as string
+        """
+        try:
+            pr = self.github_client.get_pull_request(pr_number)
+
+            # Get diff from GitHub API
+            # Note: PyGithub doesn't directly expose diff, so we use the API
+            diff_url = pr.diff_url
+            import requests
+
+            response = requests.get(
+                diff_url, headers={"Authorization": f"token {self.github_client.token}"}
+            )
+            response.raise_for_status()
+
+            return response.text
+
+        except Exception as e:
+            self.logger.warning(
+                "Failed to get PR diff, using git diff instead",
+                pr_number=pr_number,
+                error=str(e),
+            )
+
+            # Fallback: use git diff
+            pr = self.github_client.get_pull_request(pr_number)
+            base_branch = pr.base.ref
+            head_branch = pr.head.ref
+
+            try:
+                diff_output = self.git_ops.run_command(
+                    f"git diff origin/{base_branch}...{head_branch}"
+                )
+                return diff_output
+            except Exception as git_error:
+                self.logger.error(
+                    "Failed to get diff via git",
+                    error=str(git_error),
+                    exc_info=True,
+                )
+                return ""
+
+    def _get_changed_files(self, pr_number: int) -> List[str]:
+        """Get list of files changed in a PR.
+
+        Args:
+            pr_number: PR number
+
+        Returns:
+            List of file paths
+        """
+        try:
+            pr = self.github_client.get_pull_request(pr_number)
+            files = pr.get_files()
+            return [f.filename for f in files]
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to get changed files",
+                pr_number=pr_number,
+                error=str(e),
+                exc_info=True,
+            )
+            return []
+
+    def _post_review_comment(
+        self, pr_number: int, review_result: PRReviewResult
+    ) -> bool:
+        """Post review feedback as GitHub comment.
+
+        Args:
+            pr_number: PR number
+            review_result: Review result to post
+
+        Returns:
+            True if comment posted successfully
+        """
+        try:
+            # Format review comment
+            comment = self._format_review_comment(review_result)
+
+            # Post as PR comment
+            pr = self.github_client.get_pull_request(pr_number)
+            pr.create_issue_comment(comment)
+
+            self.logger.info(
+                "Posted review comment to PR",
+                pr_number=pr_number,
+            )
+            return True
+
+        except Exception as e:
+            self.logger.warning(
+                "Failed to post review comment",
+                pr_number=pr_number,
+                error=str(e),
+            )
+            return False
+
+    def _format_review_comment(self, review_result: PRReviewResult) -> str:
+        """Format review result as GitHub comment.
+
+        Args:
+            review_result: Review result to format
+
+        Returns:
+            Formatted comment text
+        """
+        # Header with decision
+        decision_emoji = "✅" if review_result.approved else "⚠️"
+        decision_text = "APPROVED" if review_result.approved else "CHANGES REQUESTED"
+
+        comment_lines = [
+            f"## {decision_emoji} Code Review: {decision_text}",
+            "",
+            f"**Reviewed by:** {review_result.reviewer}",
+            f"**Providers:** {', '.join(review_result.providers_reviewed)}",
+            f"**Approval:** {review_result.approval_count}/{review_result.total_reviewers} providers approved",
+            "",
+        ]
+
+        # Add summary
+        if review_result.summary:
+            comment_lines.extend(
+                [
+                    "### Summary",
+                    "",
+                    review_result.summary,
+                    "",
+                ]
+            )
+
+        # Add specific comments if present
+        if review_result.comments:
+            comment_lines.extend(
+                [
+                    "### Specific Feedback",
+                    "",
+                ]
+            )
+
+            # Group comments by severity
+            errors = [c for c in review_result.comments if c.severity == "error"]
+            warnings = [c for c in review_result.comments if c.severity == "warning"]
+            info = [c for c in review_result.comments if c.severity == "info"]
+
+            if errors:
+                comment_lines.append("#### 🔴 Issues")
+                for comment in errors:
+                    file_ref = (
+                        f"`{comment.file}:{comment.line}`"
+                        if comment.file
+                        else "General"
+                    )
+                    comment_lines.append(
+                        f"- **{file_ref}** ({comment.provider}): {comment.message}"
+                    )
+                comment_lines.append("")
+
+            if warnings:
+                comment_lines.append("#### 🟡 Warnings")
+                for comment in warnings:
+                    file_ref = (
+                        f"`{comment.file}:{comment.line}`"
+                        if comment.file
+                        else "General"
+                    )
+                    comment_lines.append(
+                        f"- **{file_ref}** ({comment.provider}): {comment.message}"
+                    )
+                comment_lines.append("")
+
+            if info:
+                comment_lines.append("#### 💡 Suggestions")
+                for comment in info[:5]:  # Limit to 5 suggestions
+                    file_ref = (
+                        f"`{comment.file}:{comment.line}`"
+                        if comment.file
+                        else "General"
+                    )
+                    comment_lines.append(
+                        f"- **{file_ref}** ({comment.provider}): {comment.message}"
+                    )
+                if len(info) > 5:
+                    comment_lines.append(f"- ... and {len(info) - 5} more suggestions")
+                comment_lines.append("")
+
+        # Footer
+        comment_lines.extend(
+            [
+                "---",
+                f"*Review completed at {review_result.reviewed_at.strftime('%Y-%m-%d %H:%M:%S UTC')}*",
+                f"*Cost: ${review_result.total_cost:.4f} | Tokens: {review_result.total_tokens:,}*",
+            ]
+        )
+
+        return "\n".join(comment_lines)
+
+    def _update_work_item(
+        self, work_item: WorkItem, review_result: PRReviewResult
+    ) -> bool:
+        """Update work item with review status.
+
+        Args:
+            work_item: Work item to update
+            review_result: Review result
+
+        Returns:
+            True if updated successfully
+        """
+        try:
+            # Update metadata
+            work_item.metadata["review_status"] = (
+                "approved" if review_result.approved else "changes_requested"
+            )
+            work_item.metadata["review_providers"] = review_result.providers_reviewed
+            work_item.metadata["review_approval_count"] = review_result.approval_count
+            work_item.metadata["review_total_reviewers"] = review_result.total_reviewers
+            work_item.metadata["review_comments_count"] = len(review_result.comments)
+            work_item.metadata["review_cost"] = review_result.total_cost
+
+            return True
+
+        except Exception as e:
+            self.logger.warning(
+                "Failed to update work item with review status",
+                work_item_id=work_item.item_id,
+                error=str(e),
+            )
+            return False
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get code review statistics.
+
+        Returns:
+            Dictionary with statistics
+        """
+        approval_rate = (
+            (self.approved_reviews / self.total_reviews * 100)
+            if self.total_reviews > 0
+            else 0.0
+        )
+
+        return {
+            "total_reviews": self.total_reviews,
+            "approved_reviews": self.approved_reviews,
+            "rejected_reviews": self.rejected_reviews,
+            "failed_reviews": self.failed_reviews,
+            "approval_rate": approval_rate,
+        }
+
+    def reset_statistics(self):
+        """Reset code review statistics."""
+        self.total_reviews = 0
+        self.approved_reviews = 0
+        self.rejected_reviews = 0
+        self.failed_reviews = 0

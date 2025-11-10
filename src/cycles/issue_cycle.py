@@ -17,6 +17,7 @@ from github.Issue import Issue
 
 class RateLimitStatus(Enum):
     """Status of GitHub API rate limit."""
+
     OK = "ok"
     LIMITED = "limited"
     UNKNOWN = "unknown"
@@ -25,6 +26,7 @@ class RateLimitStatus(Enum):
 @dataclass
 class RateLimitInfo:
     """Thread-safe rate limit information."""
+
     remaining: int
     reset_time: datetime
     last_checked: datetime
@@ -43,6 +45,7 @@ class RateLimitInfo:
 @dataclass
 class MonitoringStats:
     """Statistics for issue monitoring operations."""
+
     total_issues_found: int = 0
     issues_claimed: int = 0
     issues_skipped_concurrent_limit: int = 0
@@ -114,7 +117,11 @@ class IssueMonitor:
             if rate_status == RateLimitStatus.LIMITED:
                 self.logger.warning(
                     "GitHub API rate limit exceeded, skipping issue check",
-                    reset_time=self._rate_limit_info.reset_time.isoformat() if self._rate_limit_info else None,
+                    reset_time=(
+                        self._rate_limit_info.reset_time.isoformat()
+                        if self._rate_limit_info
+                        else None
+                    ),
                 )
                 return []
             elif rate_status == RateLimitStatus.UNKNOWN:
@@ -150,7 +157,9 @@ class IssueMonitor:
             for issue in issues:
                 # Stop if we hit concurrent limit
                 if current_count >= self.config.issue_processing.max_concurrent:
-                    self.stats.issues_skipped_concurrent_limit += (len(issues) - len(claimed_work_items))
+                    self.stats.issues_skipped_concurrent_limit += len(issues) - len(
+                        claimed_work_items
+                    )
                     break
 
                 # Check if already being processed
@@ -218,7 +227,7 @@ class IssueMonitor:
             self.logger.error(
                 "Failed to fetch issues from GitHub",
                 error=str(e),
-                status=getattr(e, 'status', None),
+                status=getattr(e, "status", None),
             )
             raise
 
@@ -238,7 +247,9 @@ class IssueMonitor:
             "author": issue.user.login if issue.user else None,
             "created_at": issue.created_at.isoformat() if issue.created_at else None,
             "url": issue.html_url,
-            "body": issue.body[:self.ISSUE_BODY_PREVIEW_LENGTH] if issue.body else None,
+            "body": (
+                issue.body[: self.ISSUE_BODY_PREVIEW_LENGTH] if issue.body else None
+            ),
         }
 
         # Add to work queue
@@ -280,7 +291,9 @@ class IssueMonitor:
             if self._rate_limit_info:
                 if self._rate_limit_info.is_exceeded():
                     return RateLimitStatus.LIMITED
-                if not self._rate_limit_info.should_refresh(self.RATE_LIMIT_CHECK_INTERVAL_SECONDS):
+                if not self._rate_limit_info.should_refresh(
+                    self.RATE_LIMIT_CHECK_INTERVAL_SECONDS
+                ):
                     return RateLimitStatus.OK
 
             # Fetch fresh rate limit info
@@ -292,7 +305,7 @@ class IssueMonitor:
                     remaining=core_limit.remaining,
                     reset_time=core_limit.reset,
                     last_checked=datetime.now(timezone.utc),
-                    limit=core_limit.limit
+                    limit=core_limit.limit,
                 )
 
                 # Log warnings
@@ -332,7 +345,7 @@ class IssueMonitor:
 
         # Extract reset time from error if available
         reset_time = None
-        if hasattr(error, 'reset_time'):
+        if hasattr(error, "reset_time"):
             reset_time = datetime.fromtimestamp(error.reset_time, tz=timezone.utc)
 
             with self._rate_limit_lock:
@@ -340,7 +353,9 @@ class IssueMonitor:
                     remaining=0,
                     reset_time=reset_time,
                     last_checked=datetime.now(timezone.utc),
-                    limit=self._rate_limit_info.limit if self._rate_limit_info else 5000
+                    limit=(
+                        self._rate_limit_info.limit if self._rate_limit_info else 5000
+                    ),
                 )
 
         self.logger.error(
@@ -369,19 +384,23 @@ class IssueMonitor:
         # Add rate limit info if available
         with self._rate_limit_lock:
             if self._rate_limit_info:
-                stats_dict.update({
-                    "last_rate_limit_check": self._rate_limit_info.last_checked.isoformat(),
-                    "requests_remaining": self._rate_limit_info.remaining,
-                    "rate_limit_reset_time": self._rate_limit_info.reset_time.isoformat(),
-                    "rate_limit": self._rate_limit_info.limit,
-                })
+                stats_dict.update(
+                    {
+                        "last_rate_limit_check": self._rate_limit_info.last_checked.isoformat(),
+                        "requests_remaining": self._rate_limit_info.remaining,
+                        "rate_limit_reset_time": self._rate_limit_info.reset_time.isoformat(),
+                        "rate_limit": self._rate_limit_info.limit,
+                    }
+                )
             else:
-                stats_dict.update({
-                    "last_rate_limit_check": None,
-                    "requests_remaining": None,
-                    "rate_limit_reset_time": None,
-                    "rate_limit": None,
-                })
+                stats_dict.update(
+                    {
+                        "last_rate_limit_check": None,
+                        "requests_remaining": None,
+                        "rate_limit_reset_time": None,
+                        "rate_limit": None,
+                    }
+                )
 
         return stats_dict
 

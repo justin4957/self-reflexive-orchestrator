@@ -10,11 +10,16 @@ from ..core.logger import AuditLogger, EventType
 from ..core.state import WorkItem, OrchestratorState
 from ..analyzers.implementation_planner import ImplementationPlan, ImplementationStep
 from ..integrations.git_ops import GitOps, GitOpsError, CommitInfo
-from ..integrations.multi_agent_coder_client import MultiAgentCoderClient, MultiAgentResponse, MultiAgentStrategy
+from ..integrations.multi_agent_coder_client import (
+    MultiAgentCoderClient,
+    MultiAgentResponse,
+    MultiAgentStrategy,
+)
 
 
 class ExecutionStatus(Enum):
     """Status of code execution."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -25,6 +30,7 @@ class ExecutionStatus(Enum):
 @dataclass
 class CodeChange:
     """Represents a code change to be applied."""
+
     file_path: str
     change_type: str  # "create", "modify", "delete"
     content: Optional[str] = None
@@ -43,6 +49,7 @@ class CodeChange:
 @dataclass
 class StepExecution:
     """Tracks execution of an implementation step."""
+
     step: ImplementationStep
     status: ExecutionStatus
     changes_applied: List[CodeChange] = field(default_factory=list)
@@ -59,7 +66,9 @@ class StepExecution:
             "status": self.status.value,
             "changes_applied": [c.to_dict() for c in self.changes_applied],
             "commit_hash": self.commit_info.commit_hash if self.commit_info else None,
-            "validation_passed": self.validation_feedback.success if self.validation_feedback else None,
+            "validation_passed": (
+                self.validation_feedback.success if self.validation_feedback else None
+            ),
             "error_message": self.error_message,
             "attempts": self.attempts,
         }
@@ -68,6 +77,7 @@ class StepExecution:
 @dataclass
 class ExecutionResult:
     """Result of plan execution."""
+
     plan: ImplementationPlan
     step_executions: List[StepExecution]
     overall_status: ExecutionStatus
@@ -83,7 +93,11 @@ class ExecutionResult:
             "overall_status": self.overall_status.value,
             "branch_name": self.branch_name,
             "steps_executed": len(self.step_executions),
-            "steps_completed": sum(1 for se in self.step_executions if se.status == ExecutionStatus.COMPLETED),
+            "steps_completed": sum(
+                1
+                for se in self.step_executions
+                if se.status == ExecutionStatus.COMPLETED
+            ),
             "commits_created": len(self.commits_created),
             "total_files_changed": self.total_files_changed,
             "has_errors": bool(self.errors),
@@ -184,10 +198,14 @@ class CodeExecutor:
                 if step_execution.status == ExecutionStatus.COMPLETED:
                     if step_execution.commit_info:
                         commits_created.append(step_execution.commit_info)
-                        total_files_changed += len(step_execution.commit_info.files_changed)
+                        total_files_changed += len(
+                            step_execution.commit_info.files_changed
+                        )
                 elif step_execution.status == ExecutionStatus.FAILED:
                     if step_execution.error_message:
-                        errors.append(f"Step {step.step_number}: {step_execution.error_message}")
+                        errors.append(
+                            f"Step {step.step_number}: {step_execution.error_message}"
+                        )
 
             # Determine overall status
             if all(se.status == ExecutionStatus.COMPLETED for se in step_executions):
@@ -343,7 +361,9 @@ class CodeExecutor:
                 break  # Success, exit retry loop
 
             except Exception as e:
-                error_msg = f"Attempt {attempt}/{self.MAX_RETRY_ATTEMPTS} failed: {str(e)}"
+                error_msg = (
+                    f"Attempt {attempt}/{self.MAX_RETRY_ATTEMPTS} failed: {str(e)}"
+                )
                 self.logger.error(
                     "Step execution failed",
                     step_number=step.step_number,
@@ -394,7 +414,7 @@ class CodeExecutor:
             if file_full_path.exists():
                 change_type = "modify"
                 # Read existing content
-                with open(file_full_path, 'r', encoding='utf-8') as f:
+                with open(file_full_path, "r", encoding="utf-8") as f:
                     existing_content = f.read()
             else:
                 change_type = "create"
@@ -431,12 +451,14 @@ class CodeExecutor:
                     existing_content=existing_content,
                 )
 
-            changes.append(CodeChange(
-                file_path=file_path,
-                change_type=change_type,
-                content=new_content,
-                description=f"Step {step.step_number}: {step.description}",
-            ))
+            changes.append(
+                CodeChange(
+                    file_path=file_path,
+                    change_type=change_type,
+                    content=new_content,
+                    description=f"Step {step.step_number}: {step.description}",
+                )
+            )
 
         return changes
 
@@ -597,7 +619,9 @@ CRITICAL: Return raw Python code only. No markdown, no explanations, no code blo
 
         return prompt
 
-    def _format_dependencies(self, step: ImplementationStep, plan: ImplementationPlan) -> str:
+    def _format_dependencies(
+        self, step: ImplementationStep, plan: ImplementationPlan
+    ) -> str:
         """Format dependency information for context.
 
         Args:
@@ -659,7 +683,10 @@ CRITICAL: Return raw Python code only. No markdown, no explanations, no code blo
         """
         if existing_content:
             # Add placeholder comment to existing file
-            return existing_content + f"\n\n# Implementation for step {step.step_number}: {step.description}\n"
+            return (
+                existing_content
+                + f"\n\n# Implementation for step {step.step_number}: {step.description}\n"
+            )
         else:
             # Create stub file
             return f'''"""Auto-generated file for step {step.step_number}."""
@@ -684,7 +711,7 @@ pass
 
             # Write content
             if change.content is not None:
-                with open(file_full_path, 'w', encoding='utf-8') as f:
+                with open(file_full_path, "w", encoding="utf-8") as f:
                     f.write(change.content)
 
                 self.logger.debug(
@@ -712,7 +739,9 @@ pass
         code_snippets = []
         for change in changes:
             if change.content:
-                code_snippets.append(f"**File: {change.file_path}** ({change.change_type})\n```python\n{change.content[:500]}\n```")
+                code_snippets.append(
+                    f"**File: {change.file_path}** ({change.change_type})\n```python\n{change.content[:500]}\n```"
+                )
 
         prompt = f"""Review this code change for quality and correctness:
 
@@ -802,7 +831,9 @@ Provide brief feedback (2-3 sentences). Approve if code looks reasonable.
                 if self.total_executions > 0
                 else 0.0
             ),
-            "multi_agent_stats": self.multi_agent.get_statistics() if self.enable_validation else {},
+            "multi_agent_stats": (
+                self.multi_agent.get_statistics() if self.enable_validation else {}
+            ),
         }
 
     def reset_statistics(self):

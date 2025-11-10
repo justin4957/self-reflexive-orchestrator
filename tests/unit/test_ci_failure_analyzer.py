@@ -53,7 +53,9 @@ class TestCIFailureAnalyzer(unittest.TestCase):
 
     def test_categorize_failure_build(self):
         """Test categorization of build failures."""
-        category = self.analyzer._categorize_failure("Build", "SyntaxError: invalid syntax")
+        category = self.analyzer._categorize_failure(
+            "Build", "SyntaxError: invalid syntax"
+        )
         self.assertEqual(category, CIFailureCategory.BUILD_ERROR)
 
     def test_categorize_failure_test(self):
@@ -102,33 +104,27 @@ FAIL: AssertionError in test_foo
     def test_is_auto_fixable_lint(self):
         """Test auto-fixable determination for lint errors."""
         is_fixable = self.analyzer._is_auto_fixable(
-            CIFailureCategory.LINT_ERROR,
-            ["E501 line too long"]
+            CIFailureCategory.LINT_ERROR, ["E501 line too long"]
         )
         self.assertTrue(is_fixable)
 
     def test_is_auto_fixable_build(self):
         """Test auto-fixable determination for build errors."""
         is_fixable = self.analyzer._is_auto_fixable(
-            CIFailureCategory.BUILD_ERROR,
-            ["SyntaxError: invalid syntax"]
+            CIFailureCategory.BUILD_ERROR, ["SyntaxError: invalid syntax"]
         )
         self.assertTrue(is_fixable)
 
     def test_is_auto_fixable_infrastructure(self):
         """Test auto-fixable determination for infrastructure failures."""
         is_fixable = self.analyzer._is_auto_fixable(
-            CIFailureCategory.INFRASTRUCTURE,
-            []
+            CIFailureCategory.INFRASTRUCTURE, []
         )
         self.assertFalse(is_fixable)
 
     def test_is_auto_fixable_permission(self):
         """Test auto-fixable determination for permission errors."""
-        is_fixable = self.analyzer._is_auto_fixable(
-            CIFailureCategory.PERMISSION,
-            []
-        )
+        is_fixable = self.analyzer._is_auto_fixable(CIFailureCategory.PERMISSION, [])
         self.assertFalse(is_fixable)
 
     def test_get_log_excerpt_with_errors(self):
@@ -156,7 +152,7 @@ FAIL: AssertionError in test_foo
         confidence = self.analyzer._estimate_confidence(
             CIFailureCategory.LINT_ERROR,
             ["Error 1", "Error 2"],
-            "Some log content " * 50
+            "Some log content " * 50,
         )
 
         self.assertGreater(confidence, 0.5)
@@ -165,9 +161,7 @@ FAIL: AssertionError in test_foo
     def test_estimate_confidence_unknown_category(self):
         """Test confidence estimation for unknown category."""
         confidence = self.analyzer._estimate_confidence(
-            CIFailureCategory.UNKNOWN,
-            [],
-            ""
+            CIFailureCategory.UNKNOWN, [], ""
         )
 
         self.assertLess(confidence, 0.5)
@@ -264,9 +258,7 @@ FAIL: AssertionError in test_foo
             total_checks=1,
             failing_checks=1,
         )
-        check_logs = {
-            "Lint / black": "Error: E501 line too long"
-        }
+        check_logs = {"Lint / black": "Error: E501 line too long"}
 
         analysis = self.analyzer.analyze_ci_failures(123, ci_status, check_logs)
 
@@ -289,9 +281,7 @@ FAIL: AssertionError in test_foo
             total_checks=1,
             failing_checks=1,
         )
-        check_logs = {
-            "Deploy": "Error: Permission denied"
-        }
+        check_logs = {"Deploy": "Error: Permission denied"}
 
         analysis = self.analyzer.analyze_ci_failures(123, ci_status, check_logs)
 
@@ -314,7 +304,7 @@ FAIL: AssertionError in test_foo
         )
         check_logs = {
             "Lint": "Error: E501 line too long",
-            "Deploy": "Error: Permission denied"
+            "Deploy": "Error: Permission denied",
         }
 
         analysis = self.analyzer.analyze_ci_failures(123, ci_status, check_logs)
@@ -412,5 +402,5 @@ FAIL: AssertionError in test_foo
         self.assertEqual(self.analyzer.escalated_failures, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 @dataclass
 class OrchestratorConfig:
     """Main orchestrator configuration."""
+
     mode: str = "supervised"
     poll_interval: int = 300
     work_dir: str = "./workspace"
@@ -19,6 +20,7 @@ class OrchestratorConfig:
 @dataclass
 class GitHubConfig:
     """GitHub integration configuration."""
+
     repository: str = ""
     token: str = ""
     base_branch: str = "main"
@@ -27,6 +29,7 @@ class GitHubConfig:
 @dataclass
 class IssueProcessingConfig:
     """Issue processing configuration."""
+
     auto_claim_labels: List[str] = field(default_factory=lambda: ["bot-approved"])
     ignore_labels: List[str] = field(default_factory=lambda: ["wontfix", "manual-only"])
     max_complexity: int = 7
@@ -53,6 +56,7 @@ class IssueProcessingConfig:
 @dataclass
 class PRManagementConfig:
     """Pull request management configuration."""
+
     auto_fix_attempts: int = 2
     require_reviews: int = 1
     auto_merge: bool = True
@@ -63,6 +67,7 @@ class PRManagementConfig:
 @dataclass
 class CodeReviewConfig:
     """Code review configuration."""
+
     multi_agent_coder_path: str = "../multi_agent_coder/multi_agent_coder"
     review_timeout: int = 600
     require_approval: bool = True
@@ -71,9 +76,12 @@ class CodeReviewConfig:
 @dataclass
 class MultiAgentCoderConfig:
     """Multi-agent-coder integration configuration."""
+
     executable_path: str = "../multi_agent_coder/multi_agent_coder"
     default_strategy: str = "all"  # all, sequential, dialectical
-    default_providers: List[str] = field(default_factory=lambda: [])  # Empty = use all available
+    default_providers: List[str] = field(
+        default_factory=lambda: []
+    )  # Empty = use all available
     query_timeout: int = 120  # seconds
     enable_for_issue_analysis: bool = True
     enable_for_code_review: bool = True
@@ -82,6 +90,7 @@ class MultiAgentCoderConfig:
 @dataclass
 class RoadmapConfig:
     """Roadmap generation configuration."""
+
     enabled: bool = True
     generation_frequency: str = "weekly"
     proposals_per_cycle: int = 5
@@ -91,6 +100,7 @@ class RoadmapConfig:
 @dataclass
 class LLMConfig:
     """LLM API configuration."""
+
     api_key: str = ""
     model: str = "claude-sonnet-4-5-20250929"
     max_tokens: int = 8000
@@ -100,8 +110,13 @@ class LLMConfig:
 @dataclass
 class SafetyConfig:
     """Safety and approval configuration."""
+
     human_approval_required: List[str] = field(
-        default_factory=lambda: ["merge_to_main", "breaking_changes", "security_related"]
+        default_factory=lambda: [
+            "merge_to_main",
+            "breaking_changes",
+            "security_related",
+        ]
     )
     max_api_cost_per_day: float = 50.0
     rollback_on_test_failure: bool = True
@@ -111,6 +126,7 @@ class SafetyConfig:
 @dataclass
 class LoggingConfig:
     """Logging configuration."""
+
     level: str = "INFO"
     file: str = "logs/orchestrator.log"
     audit_file: str = "logs/audit.log"
@@ -120,16 +136,23 @@ class LoggingConfig:
 @dataclass
 class NotificationsConfig:
     """Notifications configuration."""
+
     slack_webhook: str = ""
     email: str = ""
     on_events: List[str] = field(
-        default_factory=lambda: ["error", "merge", "roadmap_generated", "human_approval_required"]
+        default_factory=lambda: [
+            "error",
+            "merge",
+            "roadmap_generated",
+            "human_approval_required",
+        ]
     )
 
 
 @dataclass
 class RedisConfig:
     """Redis configuration for state management."""
+
     host: str = "localhost"
     port: int = 6379
     db: int = 0
@@ -139,12 +162,17 @@ class RedisConfig:
 @dataclass
 class Config:
     """Complete orchestrator configuration."""
+
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     github: GitHubConfig = field(default_factory=GitHubConfig)
-    issue_processing: IssueProcessingConfig = field(default_factory=IssueProcessingConfig)
+    issue_processing: IssueProcessingConfig = field(
+        default_factory=IssueProcessingConfig
+    )
     pr_management: PRManagementConfig = field(default_factory=PRManagementConfig)
     code_review: CodeReviewConfig = field(default_factory=CodeReviewConfig)
-    multi_agent_coder: MultiAgentCoderConfig = field(default_factory=MultiAgentCoderConfig)
+    multi_agent_coder: MultiAgentCoderConfig = field(
+        default_factory=MultiAgentCoderConfig
+    )
     roadmap: RoadmapConfig = field(default_factory=RoadmapConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
     safety: SafetyConfig = field(default_factory=SafetyConfig)
@@ -161,7 +189,9 @@ class Config:
             issue_processing=IssueProcessingConfig(**data.get("issue_processing", {})),
             pr_management=PRManagementConfig(**data.get("pr_management", {})),
             code_review=CodeReviewConfig(**data.get("code_review", {})),
-            multi_agent_coder=MultiAgentCoderConfig(**data.get("multi_agent_coder", {})),
+            multi_agent_coder=MultiAgentCoderConfig(
+                **data.get("multi_agent_coder", {})
+            ),
             roadmap=RoadmapConfig(**data.get("roadmap", {})),
             llm=LLMConfig(**data.get("llm", {})),
             safety=SafetyConfig(**data.get("safety", {})),
@@ -177,7 +207,9 @@ class Config:
         # Validate orchestrator mode
         valid_modes = ["manual", "supervised", "autonomous"]
         if self.orchestrator.mode not in valid_modes:
-            errors.append(f"Invalid mode: {self.orchestrator.mode}. Must be one of {valid_modes}")
+            errors.append(
+                f"Invalid mode: {self.orchestrator.mode}. Must be one of {valid_modes}"
+            )
 
         # Validate GitHub config
         if not self.github.repository:
@@ -263,7 +295,9 @@ class ConfigManager:
         # Validate configuration
         errors = config.validate()
         if errors:
-            raise ValueError(f"Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors))
+            raise ValueError(
+                f"Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors)
+            )
 
         self.config = config
         return config
