@@ -202,7 +202,7 @@ class StateManager:
         Returns:
             List of pending work items
         """
-        items = self.work_items.values()
+        items = list(self.work_items.values())
 
         if item_type:
             items = [item for item in items if item.item_type == item_type]
@@ -220,7 +220,7 @@ class StateManager:
         Returns:
             List of in-progress work items
         """
-        items = self.work_items.values()
+        items = list(self.work_items.values())
 
         if item_type:
             items = [item for item in items if item.item_type == item_type]

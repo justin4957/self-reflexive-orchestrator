@@ -346,7 +346,7 @@ class HealthChecker:
             if self.anthropic_client:
                 status = HealthStatus.HEALTHY
                 message = "Anthropic API client configured"
-                details = {"configured": True}
+                details: Dict[str, Any] = {"configured": True}
             else:
                 status = HealthStatus.DEGRADED
                 message = "Anthropic API client not configured"

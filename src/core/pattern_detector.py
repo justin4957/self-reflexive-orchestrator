@@ -208,7 +208,7 @@ class PatternDetector:
         Returns:
             Dictionary of common attributes
         """
-        common = {
+        common: Dict[str, Any] = {
             "error_messages": [],
             "retry_counts": [],
             "operation_ids": [],
