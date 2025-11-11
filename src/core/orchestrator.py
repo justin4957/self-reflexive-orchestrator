@@ -17,6 +17,7 @@ from ..integrations.git_ops import GitOps
 from ..integrations.github_client import GitHubClient
 from ..integrations.multi_agent_coder_client import MultiAgentCoderClient
 from ..integrations.test_runner import TestRunner
+from ..safety.cost_tracker import CostTracker
 from .analytics import AnalyticsCollector, InsightsGenerator, OperationTracker
 from .cache import AnalysisCache, CacheManager, GitHubAPICache, LLMCache
 from .config import Config, ConfigManager
@@ -252,11 +253,19 @@ class Orchestrator:
             logger=self.logger,
         )
 
+        # Initialize cost tracker
+        self.cost_tracker = CostTracker(
+            max_daily_cost=self.config.safety.max_api_cost_per_day,
+            logger=self.logger,
+            state_file=str(self.state_dir / "cost_tracker.json"),
+        )
+
         self.logger.info(
             "Phase 6 components initialized successfully",
             cache_enabled=True,
             dashboard_enabled=True,
             analytics_enabled=True,
+            cost_tracking_enabled=True,
         )
 
     def _initialize_phase2_components(self):
