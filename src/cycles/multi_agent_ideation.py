@@ -547,7 +547,7 @@ Calculate overall consensus confidence (0-1).
         # Look for numbered sections or clear delimiters
         lines = response_text.split("\n")
 
-        current_proposal = {}
+        current_proposal: Dict[str, Any] = {}
         proposal_count = 0
 
         for line in lines:
@@ -834,11 +834,11 @@ Calculate overall consensus confidence (0-1).
         Returns:
             List of phase dictionaries
         """
-        phases = []
+        phases: List[Dict[str, Any]] = []
 
         # Simple phase extraction - look for "Phase" headers
         lines = response_text.split("\n")
-        current_phase = None
+        current_phase: Optional[Dict[str, Any]] = None
 
         for line in lines:
             line = line.strip()
