@@ -443,7 +443,7 @@ Focus on highest-value additions.
         )
 
         # Find consensus patterns (mentioned by multiple providers)
-        pattern_counts = {}
+        pattern_counts: Dict[str, int] = {}
         for insight in provider_insights.values():
             for pattern in insight.architecture_patterns:
                 pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
@@ -471,7 +471,7 @@ Focus on highest-value additions.
                 )
 
         # Build consensus priorities (mentioned by multiple providers)
-        priority_counts = {}
+        priority_counts: Dict[str, List[Dict[str, Any]]] = {}
         for priority in all_priorities:
             desc = priority["description"].lower()
             priority_counts[desc] = priority_counts.get(desc, []) + [priority]
