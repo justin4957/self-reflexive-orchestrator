@@ -71,10 +71,10 @@ class GitHubClient:
             List of matching issues
         """
         try:
-            issues = self.repo.get_issues(state=state, labels=labels or [])
+            all_issues = self.repo.get_issues(state=state, labels=labels or [])
 
             # Filter out PRs (GitHub API treats PRs as issues)
-            issues = [issue for issue in issues if not issue.pull_request]
+            issues = [issue for issue in all_issues if not issue.pull_request]
 
             # Filter out excluded labels
             if exclude_labels:
@@ -363,7 +363,7 @@ class GitHubClient:
                 self.logger.warning(
                     f"Failed to merge PR #{pr_number}",
                     pr_number=pr_number,
-                    message=result.message,
+                    error_message=result.message,
                 )
                 return False
 
@@ -535,7 +535,7 @@ class GitHubClient:
             rate_limit = self.github.get_rate_limit()
 
             # Core API limits (most operations)
-            core = rate_limit.core
+            core = rate_limit.core  # type: ignore[attr-defined]
             core_info = {
                 "limit": core.limit,
                 "remaining": core.remaining,
@@ -543,7 +543,7 @@ class GitHubClient:
             }
 
             # Search API limits
-            search = rate_limit.search
+            search = rate_limit.search  # type: ignore[attr-defined]
             search_info = {
                 "limit": search.limit,
                 "remaining": search.remaining,
@@ -551,7 +551,7 @@ class GitHubClient:
             }
 
             # GraphQL API limits
-            graphql = rate_limit.graphql
+            graphql = rate_limit.graphql  # type: ignore[attr-defined]
             graphql_info = {
                 "limit": graphql.limit,
                 "remaining": graphql.remaining,
