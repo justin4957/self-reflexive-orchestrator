@@ -309,6 +309,7 @@ class Orchestrator:
         self.test_failure_analyzer = TestFailureAnalyzer(
             multi_agent_client=self.multi_agent_coder,
             logger=self.logger,
+            repo_path=self.workspace,
         )
 
         self.ci_failure_analyzer = CIFailureAnalyzer(
