@@ -291,7 +291,7 @@ class Orchestrator:
 
         # Initialize test runner
         self.test_runner = TestRunner(
-            project_root=self.workspace,
+            repo_path=self.workspace,
             logger=self.logger,
         )
 
