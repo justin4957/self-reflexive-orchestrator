@@ -295,7 +295,7 @@ class MetricsCollector:
 
         # Calculate errors by type
         errors_total = int(self.counters.get("errors_total", 0))
-        errors_by_type = {}
+        errors_by_type: Dict[str, int] = {}
 
         for metric in metrics:
             if metric.name == "errors_total" and "type" in metric.tags:
