@@ -958,7 +958,7 @@ class CIMonitor:
             return None
 
         try:
-            from dateutil import parser
+            from dateutil import parser  # type: ignore[import-untyped]
 
             return parser.parse(dt_str)
         except Exception:

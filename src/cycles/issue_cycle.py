@@ -54,7 +54,7 @@ class MonitoringStats:
     rate_limit_hits: int = 0
     errors: int = 0
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
@@ -154,7 +154,7 @@ class IssueMonitor:
                 return []
 
             # Process each issue
-            claimed_work_items = []
+            claimed_work_items: List[WorkItem] = []
             for issue in issues:
                 # Stop if we hit concurrent limit
                 if current_count >= self.config.issue_processing.max_concurrent:
@@ -300,7 +300,7 @@ class IssueMonitor:
             # Fetch fresh rate limit info
             try:
                 rate_limit = self.github.github.get_rate_limit()
-                core_limit = rate_limit.core
+                core_limit = rate_limit.core  # type: ignore[attr-defined]
 
                 self._rate_limit_info = RateLimitInfo(
                     remaining=core_limit.remaining,
@@ -366,7 +366,7 @@ class IssueMonitor:
         )
 
         self.logger.audit(
-            EventType.ERROR,
+            EventType.ERROR_OCCURRED,
             "Rate limit exceeded while monitoring issues",
             metadata={
                 "reset_time": reset_time.isoformat() if reset_time else None,
