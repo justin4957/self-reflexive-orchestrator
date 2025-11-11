@@ -238,7 +238,7 @@ class CodebaseAnalyzer:
         Returns:
             Nested dictionary representing file structure
         """
-        structure = {}
+        structure: Dict[str, Any] = {}
 
         for root, dirs, files in os.walk(self.repository_path):
             # Filter out ignored directories
@@ -398,12 +398,12 @@ class CodebaseAnalyzer:
         total_complexity = sum(fm.complexity for fm in file_metrics)
 
         # Count languages
-        languages = {}
+        languages: Dict[str, int] = {}
         for fm in file_metrics:
             languages[fm.language] = languages.get(fm.language, 0) + 1
 
         # Count file types
-        file_types = {}
+        file_types: Dict[str, int] = {}
         for fm in file_metrics:
             ext = os.path.splitext(fm.path)[1]
             file_types[ext] = file_types.get(ext, 0) + 1
@@ -498,7 +498,7 @@ class CodebaseAnalyzer:
         Returns:
             Dictionary of detected patterns
         """
-        patterns = {}
+        patterns: Dict[str, Any] = {}
 
         # Detect test files
         test_files = [

@@ -3,7 +3,7 @@
 import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from github.Issue import Issue
 
@@ -451,7 +451,7 @@ Format your response with clear sections and bullet points.
             return []
 
         # Group by step number
-        steps_by_number = {}
+        steps_by_number: Dict[int, List[Dict[str, Any]]] = {}
         for step in all_steps:
             num = step["step_number"]
             if num not in steps_by_number:
@@ -488,10 +488,10 @@ Format your response with clear sections and bullet points.
 
     def _extract_test_strategy(self, approaches: MultiAgentResponse) -> TestStrategy:
         """Extract test strategy from multi-agent responses."""
-        unit_tests_create = set()
-        unit_tests_modify = set()
-        integration_tests = set()
-        fixtures = set()
+        unit_tests_create: Set[str] = set()
+        unit_tests_modify: Set[str] = set()
+        integration_tests: Set[str] = set()
+        fixtures: Set[str] = set()
         coverage = "Maintain or improve existing coverage"
 
         for provider, response in approaches.responses.items():

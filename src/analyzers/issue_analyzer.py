@@ -418,7 +418,7 @@ class IssueAnalyzer:
             return IssueType.UNKNOWN
 
         # Return most common type
-        type_counts = {}
+        type_counts: Dict[IssueType, int] = {}
         for issue_type in types:
             type_counts[issue_type] = type_counts.get(issue_type, 0) + 1
 

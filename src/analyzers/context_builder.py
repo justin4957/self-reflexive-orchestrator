@@ -251,7 +251,7 @@ class ContextBuilder:
     def _detect_primary_language(self) -> str:
         """Detect primary programming language."""
         # Count files by extension
-        extensions = {}
+        extensions: Dict[str, int] = {}
         for py_file in self.repo_path.rglob("*.py"):
             extensions[".py"] = extensions.get(".py", 0) + 1
         for js_file in self.repo_path.rglob("*.js"):
