@@ -356,7 +356,7 @@ def generate_roadmap(ctx, force: bool, goals: tuple):
         from .integrations.multi_agent_coder_client import MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
-        config = config_manager.load_config()
+        config = config_manager.load()
         logger = setup_logging()
 
         # Initialize clients
@@ -459,7 +459,7 @@ def roadmap_status(ctx):
         from .integrations.multi_agent_coder_client import MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
-        config = config_manager.load_config()
+        config = config_manager.load()
         logger = setup_logging()
 
         # Initialize clients
@@ -532,7 +532,7 @@ def show_roadmap(ctx):
         from .integrations.multi_agent_coder_client import MultiAgentCoderClient
 
         config_manager = ConfigManager(ctx.obj.get("config_path"))
-        config = config_manager.load_config()
+        config = config_manager.load()
         logger = setup_logging()
 
         # Initialize clients
@@ -605,8 +605,9 @@ def usage_report(ctx, detailed: bool):
         console.print()
 
         # Load configuration
-        config = ConfigManager(ctx.obj["config_path"])
-        logger = setup_logging(level="INFO")
+        config_manager = ConfigManager(ctx.obj["config_path"])
+        config = config_manager.load()
+        logger = setup_logging(log_level="INFO")
 
         # Initialize cost tracker
         max_daily_cost = config.safety.max_api_cost_per_day
@@ -777,7 +778,7 @@ def rollback(
 
         # Load configuration
         config_manager = ConfigManager(ctx.obj.get("config_path"))
-        config = config_manager.load_config()
+        config = config_manager.load()
         logger = setup_logging()
 
         # Initialize GitHub client
@@ -931,7 +932,7 @@ def list_rollback_points(ctx):
 
         # Load configuration
         config_manager = ConfigManager(ctx.obj.get("config_path"))
-        config = config_manager.load_config()
+        config = config_manager.load()
         logger = setup_logging()
 
         # Initialize GitHub client
@@ -1017,7 +1018,7 @@ def health(ctx, json_output: bool):
 
         # Load configuration
         config_manager = ConfigManager(ctx.obj.get("config_path"))
-        config = config_manager.load_config()
+        config = config_manager.load()
         logger = setup_logging()
 
         # Initialize clients for API checks
@@ -1244,7 +1245,7 @@ def approval_list(ctx, json_output: bool):
         from .safety.approval import ApprovalSystem
 
         # Initialize approval system
-        logger = get_logger(__name__)
+        logger = get_logger()
         approval_system = ApprovalSystem(logger=logger)
 
         # Get pending approvals
@@ -1323,7 +1324,7 @@ def approve(ctx, request_id: str, rationale: Optional[str], user: str):
         from .safety.approval import ApprovalSystem
 
         # Initialize approval system
-        logger = get_logger(__name__)
+        logger = get_logger()
         approval_system = ApprovalSystem(logger=logger)
 
         # Approve request
@@ -1367,7 +1368,7 @@ def deny(ctx, request_id: str, rationale: str, user: str):
         from .safety.approval import ApprovalSystem
 
         # Initialize approval system
-        logger = get_logger(__name__)
+        logger = get_logger()
         approval_system = ApprovalSystem(logger=logger)
 
         # Deny request
@@ -1402,7 +1403,7 @@ def approval_history(ctx, limit: int, json_output: bool):
         from .safety.approval import ApprovalSystem
 
         # Initialize approval system
-        logger = get_logger(__name__)
+        logger = get_logger()
         approval_system = ApprovalSystem(logger=logger)
 
         # Get history
