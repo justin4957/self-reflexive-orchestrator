@@ -112,7 +112,7 @@ Be specific and thorough."""
 
     def _parse_analysis(self, response, files_changed) -> BreakingChangeAnalysis:
         """Parse multi-agent response into analysis."""
-        changes = []
+        changes: List[BreakingChange] = []
         severities = {"NONE": 0, "MINOR": 0, "MAJOR": 0, "CRITICAL": 0}
         provider_assessments = {}
 
