@@ -278,15 +278,18 @@ class ApprovalSystem:
 
         try:
             # Query multi-agent system with ALL strategy for multiple perspectives
-            result = await self.multi_agent_client.query(
+            result = self.multi_agent_client.query(
                 prompt=prompt,
                 strategy=MultiAgentStrategy.ALL,
             )
 
             # Parse and synthesize risk assessments
-            risk_level, concerns = self._synthesize_risk_assessments(
-                result.get("responses", [])
-            )
+            # Convert Dict[str, str] to List[Dict[str, Any]] format
+            responses_list = [
+                {"provider": provider, "response": response}
+                for provider, response in result.responses.items()
+            ]
+            risk_level, concerns = self._synthesize_risk_assessments(responses_list)
 
             self.logger.info(
                 "multi_agent_risk_assessment_completed",
@@ -535,7 +538,7 @@ Provide a structured risk assessment."""
             ApprovalDecision
         """
         # Create future for this approval
-        future = asyncio.Future()
+        future: asyncio.Future[ApprovalDecision] = asyncio.Future()
         self._approval_futures[request.request_id] = future
 
         try:
@@ -706,7 +709,7 @@ Provide a structured risk assessment."""
         """
         pending = self.get_pending_approvals()
 
-        summary = {
+        summary: Dict[str, Any] = {
             "total_pending": len(pending),
             "by_risk_level": {},
             "by_operation": {},

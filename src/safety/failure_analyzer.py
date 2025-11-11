@@ -416,7 +416,7 @@ Be specific and actionable in your recommendations."""
     def _check_consensus(self, response) -> bool:
         """Check if providers reached consensus."""
         # Simple heuristic: check if key terms appear in multiple responses
-        key_terms_count = {}
+        key_terms_count: Dict[str, int] = {}
 
         for provider_response in response.responses.values():
             words = provider_response.lower().split()
