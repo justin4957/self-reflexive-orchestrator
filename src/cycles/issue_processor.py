@@ -240,10 +240,12 @@ class IssueProcessor:
 
             if (
                 not execution_result
-                or execution_result.status != ExecutionStatus.SUCCESS
+                or execution_result.overall_status != ExecutionStatus.COMPLETED
             ):
                 error_msg = (
-                    execution_result.error if execution_result else "Execution failed"
+                    execution_result.errors[0]
+                    if execution_result and execution_result.errors
+                    else "Execution failed"
                 )
                 return self._create_result(
                     work_item,
@@ -337,7 +339,9 @@ class IssueProcessor:
                 "recommended_approach": analysis.recommended_approach,
                 "confidence": analysis.consensus_confidence,
             }
-            self.state.update_work_item(work_item)
+            self.state.update_work_item(
+                work_item.item_type, work_item.item_id, metadata=work_item.metadata
+            )
 
             self.logger.info(
                 f"Issue analysis complete for #{issue_number}",
@@ -393,7 +397,9 @@ class IssueProcessor:
                 "complexity": plan.estimated_total_complexity,
                 "confidence": plan.consensus_confidence,
             }
-            self.state.update_work_item(work_item)
+            self.state.update_work_item(
+                work_item.item_type, work_item.item_id, metadata=work_item.metadata
+            )
 
             self.logger.info(
                 f"Implementation plan generated for #{issue_number}",
@@ -432,22 +438,32 @@ class IssueProcessor:
 
         try:
             # Execute the plan
-            result = self.code_executor.execute_plan(plan)
+            result = self.code_executor.execute_plan(plan, work_item)
 
             # Store execution summary in work item metadata
             work_item.metadata["execution"] = {
-                "status": result.status.value,
-                "steps_completed": result.steps_completed,
-                "total_steps": result.total_steps,
-                "files_modified": len(result.files_modified),
-                "commits": len(result.commits),
+                "status": result.overall_status.value,
+                "steps_completed": sum(
+                    1
+                    for se in result.step_executions
+                    if se.status == ExecutionStatus.COMPLETED
+                ),
+                "total_steps": len(result.step_executions),
+                "files_modified": result.total_files_changed,
+                "commits": len(result.commits_created),
             }
-            self.state.update_work_item(work_item)
+            self.state.update_work_item(
+                work_item.item_type, work_item.item_id, metadata=work_item.metadata
+            )
 
             self.logger.info(
                 f"Implementation executed for issue #{work_item.metadata.get('issue_number')}",
-                status=result.status.value,
-                steps_completed=result.steps_completed,
+                status=result.overall_status.value,
+                steps_completed=sum(
+                    1
+                    for se in result.step_executions
+                    if se.status == ExecutionStatus.COMPLETED
+                ),
             )
 
             return result
@@ -560,7 +576,9 @@ class IssueProcessor:
                 "skipped": result.skipped,
                 "success": result.success,
             }
-            self.state.update_work_item(work_item)
+            self.state.update_work_item(
+                work_item.item_type, work_item.item_id, metadata=work_item.metadata
+            )
 
             return result
 
@@ -590,19 +608,24 @@ class IssueProcessor:
 
         try:
             # Analyze failures
-            analysis = self.test_failure_analyzer.analyze_test_failures(
+            analyses = self.test_failure_analyzer.analyze_test_failures(
                 test_result=test_result,
                 changed_files=plan.files_to_create + plan.files_to_modify,
             )
 
-            # Check if we have confident fix suggestions
-            if (
-                not analysis
-                or analysis.auto_fix_recommended < self.config.min_fix_confidence
-            ):
+            # Check if we have any analyses with confident fix suggestions
+            if not analyses:
+                self.logger.warning("No failure analyses generated")
+                return False
+
+            # Check average confidence across all analyses
+            avg_confidence = sum(a.analysis_confidence for a in analyses) / len(
+                analyses
+            )
+            if avg_confidence < self.config.min_fix_confidence:
                 self.logger.warning(
                     "Fix confidence too low",
-                    confidence=analysis.auto_fix_recommended if analysis else 0,
+                    confidence=avg_confidence,
                 )
                 return False
 
@@ -611,22 +634,30 @@ class IssueProcessor:
 
             # TODO: Implement fix application through CodeExecutor
             # For now, we log the fix suggestions
+            all_fix_suggestions = [
+                fix for analysis in analyses for fix in analysis.fix_suggestions
+            ]
             self.logger.info(
                 "Fix suggestions generated",
-                num_suggestions=len(analysis.fix_suggestions),
-                confidence=analysis.auto_fix_recommended,
+                num_suggestions=len(all_fix_suggestions),
+                confidence=avg_confidence,
             )
 
             # Store analysis in metadata
+            all_root_causes = [
+                cause for analysis in analyses for cause in analysis.root_causes
+            ]
             work_item.metadata.setdefault("fix_attempts", []).append(
                 {
                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "failures_analyzed": len(analysis.root_causes),
-                    "fixes_suggested": len(analysis.fix_suggestions),
-                    "confidence": analysis.auto_fix_recommended,
+                    "failures_analyzed": len(all_root_causes),
+                    "fixes_suggested": len(all_fix_suggestions),
+                    "confidence": avg_confidence,
                 }
             )
-            self.state.update_work_item(work_item)
+            self.state.update_work_item(
+                work_item.item_type, work_item.item_id, metadata=work_item.metadata
+            )
 
             return True
 
@@ -673,7 +704,7 @@ class IssueProcessor:
                     "branch": plan.branch_name,
                 }
                 self._update_work_item_state(work_item, "pr_created")
-                self.state.update_work_item(work_item)
+                # Note: _update_work_item_state already calls update_work_item, no need to call again
 
                 self.logger.audit(
                     EventType.PR_CREATED,
@@ -715,7 +746,9 @@ class IssueProcessor:
         if error:
             work_item.error = error
         work_item.updated_at = datetime.now(timezone.utc).isoformat()
-        self.state.update_work_item(work_item)
+        self.state.update_work_item(
+            work_item.item_type, work_item.item_id, state=state, error=error
+        )
 
     def _create_result(
         self,
