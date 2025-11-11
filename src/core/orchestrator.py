@@ -303,7 +303,6 @@ class Orchestrator:
 
         self.implementation_planner = ImplementationPlanner(
             multi_agent_client=self.multi_agent_coder,
-            github_client=self.github,
             logger=self.logger,
         )
 
