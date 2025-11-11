@@ -325,7 +325,8 @@ class TestContextDatabaseStorage:
         loaded = temp_db.load_repository_context()
         assert loaded is not None
         # Timestamp should be the most recent one (could be string or datetime)
-        assert str(loaded["last_updated"]).startswith("2025-11-10")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        assert str(loaded["last_updated"]).startswith(today)
 
 
 class TestContextIntegration:
