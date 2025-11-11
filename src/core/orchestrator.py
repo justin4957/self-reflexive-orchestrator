@@ -257,7 +257,7 @@ class Orchestrator:
         self.cost_tracker = CostTracker(
             max_daily_cost=self.config.safety.max_api_cost_per_day,
             logger=self.logger,
-            state_file=str(self.state_dir / "cost_tracker.json"),
+            state_file=str(self.workspace / "cost_tracker.json"),
         )
 
         self.logger.info(
