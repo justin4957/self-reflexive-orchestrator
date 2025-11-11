@@ -149,9 +149,8 @@ Focus on what can be learned and improved.
         )
 
         # Extract analyses from different providers
-        analyses = {}
-        for response in result.responses:
-            analyses[response.provider] = response.content
+        # result.responses is Dict[str, str] (provider -> content)
+        analyses = result.responses
 
         # The multi-agent-coder should provide a summary
         consensus = result.summary if hasattr(result, "summary") else None
@@ -249,10 +248,11 @@ Build consensus on the best prevention strategy across all perspectives.
         )
 
         # Parse the dialectical response
+        # result.responses is Dict[str, str], get first response
         content = (
             result.summary
             if hasattr(result, "summary")
-            else result.responses[0].content
+            else next(iter(result.responses.values()))
         )
 
         # Extract sections (simplified parsing)
@@ -264,9 +264,8 @@ Build consensus on the best prevention strategy across all perspectives.
         actionable_items = self._extract_actionable_items(synthesis)
 
         # Calculate confidence
-        confidence = self._calculate_consensus_confidence(
-            {r.provider: r.content for r in result.responses}
-        )
+        # result.responses is already Dict[str, str] (provider -> content)
+        confidence = self._calculate_consensus_confidence(result.responses)
 
         lesson = LearningLesson(
             pattern_id=pattern.pattern_id,
@@ -376,17 +375,17 @@ Provide concrete, implementable suggestions.
         complexity_adjustments = {}
         context_additions = []
 
-        for response in result.responses:
-            parsed = self._parse_improvements(response.content)
+        # result.responses is Dict[str, str] (provider -> content)
+        for provider, content in result.responses.items():
+            parsed = self._parse_improvements(content)
             prompt_improvements.update(parsed.get("prompts", {}))
             validation_rules.extend(parsed.get("validation", []))
             complexity_adjustments.update(parsed.get("complexity", {}))
             context_additions.extend(parsed.get("context", []))
 
         # Calculate consensus score
-        consensus_score = self._calculate_consensus_confidence(
-            {r.provider: r.content for r in result.responses}
-        )
+        # result.responses is already Dict[str, str] (provider -> content)
+        consensus_score = self._calculate_consensus_confidence(result.responses)
 
         recommendations = ImprovementRecommendations(
             pattern_id=pattern.pattern_id,
@@ -468,10 +467,11 @@ Build consensus on the learning success and next steps.
             strategy=MultiAgentStrategy.DIALECTICAL,
         )
 
+        # result.responses is Dict[str, str], get first response
         content = (
             result.summary
             if hasattr(result, "summary")
-            else result.responses[0].content
+            else next(iter(result.responses.values()))
         )
 
         # Parse results
@@ -488,9 +488,8 @@ Build consensus on the learning success and next steps.
         recommendation = self._extract_recommendation(content)
 
         # Calculate confidence
-        confidence = self._calculate_consensus_confidence(
-            {r.provider: r.content for r in result.responses}
-        )
+        # result.responses is already Dict[str, str] (provider -> content)
+        confidence = self._calculate_consensus_confidence(result.responses)
 
         validation = EffectivenessValidation(
             pattern_id=pattern_id,
@@ -630,7 +629,7 @@ Success {i}:
             Dictionary with parsed improvements
         """
         # Simplified parsing - in reality would be more sophisticated
-        improvements = {
+        improvements: Dict[str, Any] = {
             "prompts": {},
             "validation": [],
             "complexity": {},
