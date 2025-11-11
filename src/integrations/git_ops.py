@@ -272,7 +272,7 @@ class GitOps:
             self.logger.info(
                 "Created git commit",
                 commit_hash=commit_info.commit_hash,
-                message=message,
+                commit_message=message,
                 files_count=len(commit_info.files_changed),
                 event_type=EventType.CODE_COMMITTED,
             )
