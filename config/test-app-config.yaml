@@ -1,0 +1,75 @@
+# Configuration for orchestrator-test-app
+# Testing configuration for self-reflexive orchestrator
+
+orchestrator:
+  mode: supervised
+  poll_interval: 60  # Poll every minute for faster testing
+  work_dir: ../orchestrator-test-app
+
+github:
+  repository: justin4957/orchestrator-test-app
+  token: ""  # Will use GITHUB_TOKEN from environment
+  base_branch: main
+
+issue_processing:
+  auto_claim_labels:
+    - bot-approved
+    - good-first-issue
+  ignore_labels:
+    - wontfix
+    - manual-only
+    - blocked
+  max_complexity: 7
+  require_acceptance_criteria: true
+  max_concurrent: 1  # Process one at a time for testing
+
+pr_management:
+  auto_fix_attempts: 2
+  require_reviews: 0  # Skip review requirement for testing
+  auto_merge: false  # Manual merge approval for testing
+  merge_strategy: squash
+  ci_timeout: 600  # 10 minutes
+
+code_review:
+  multi_agent_coder_path: ../multi_agent_coder
+  review_timeout: 600
+  require_approval: false  # Skip for initial testing
+
+roadmap:
+  enabled: false  # Disable roadmap generation for initial testing
+  generation_frequency: weekly
+  proposals_per_cycle: 3
+  auto_create_issues: false
+
+llm:
+  api_key: ""  # Will use ANTHROPIC_API_KEY from environment
+  model: claude-sonnet-4-5-20250929
+  max_tokens: 8000
+  temperature: 0.7
+
+safety:
+  human_approval_required:
+    - merge_to_main
+  max_api_cost_per_day: 10.0  # Lower limit for testing
+  rollback_on_test_failure: true
+  max_retries: 2
+
+logging:
+  level: DEBUG  # Verbose logging for testing
+  file: logs/test-app-orchestrator.log
+  audit_file: logs/test-app-audit.log
+  structured: true
+
+notifications:
+  slack_webhook: ""
+  email: ""
+  on_events:
+    - error
+    - merge
+    - human_approval_required
+
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  password: ""
