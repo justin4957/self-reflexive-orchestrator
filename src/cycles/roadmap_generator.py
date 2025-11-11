@@ -16,6 +16,7 @@ from ..analyzers.multi_agent_analyzer import (
 )
 from ..core.logger import AuditLogger
 from ..cycles.multi_agent_ideation import (
+    FeatureProposal,
     IdeationResult,
     MultiAgentIdeation,
     SynthesizedRoadmap,
@@ -586,7 +587,7 @@ class RoadmapGenerator:
         ]
 
         # Group by provider
-        by_provider = {}
+        by_provider: Dict[str, List[FeatureProposal]] = {}
         for proposal in ideation_result.proposals:
             if proposal.provider not in by_provider:
                 by_provider[proposal.provider] = []

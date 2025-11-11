@@ -384,7 +384,7 @@ class IssueCreator:
         Returns:
             List of label names
         """
-        labels = []
+        labels: List[str] = []
 
         if not self.auto_label:
             return labels

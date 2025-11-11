@@ -634,7 +634,9 @@ CRITICAL: Return raw Python code only. No markdown, no explanations, no code blo
         parts = []
 
         if step.dependencies:
-            parts.append(f"Dependencies: {', '.join(step.dependencies)}")
+            parts.append(
+                f"Dependencies: {', '.join(str(d) for d in step.dependencies)}"
+            )
 
         if plan.files_to_create:
             parts.append(f"New files in plan: {', '.join(plan.files_to_create)}")
