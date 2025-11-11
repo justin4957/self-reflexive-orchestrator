@@ -556,7 +556,7 @@ Format your response as:
         # Split review into lines
         lines = review_text.split("\n")
 
-        current_comment = {
+        current_comment: Dict[str, Any] = {
             "message": [],
             "file": None,
             "line": None,
