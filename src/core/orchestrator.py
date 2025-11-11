@@ -297,18 +297,18 @@ class Orchestrator:
 
         # Initialize analyzers
         self.issue_analyzer = IssueAnalyzer(
-            multi_agent_coder=self.multi_agent_coder,
+            multi_agent_client=self.multi_agent_coder,
             logger=self.logger,
         )
 
         self.implementation_planner = ImplementationPlanner(
-            multi_agent_coder=self.multi_agent_coder,
+            multi_agent_client=self.multi_agent_coder,
             github_client=self.github,
             logger=self.logger,
         )
 
         self.test_failure_analyzer = TestFailureAnalyzer(
-            multi_agent_coder=self.multi_agent_coder,
+            multi_agent_client=self.multi_agent_coder,
             logger=self.logger,
         )
 

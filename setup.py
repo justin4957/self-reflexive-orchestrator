@@ -43,6 +43,8 @@ setup(
             "black>=23.12.1",
             "ruff>=0.1.9",
             "mypy>=1.7.1",
+            "types-PyYAML>=6.0.12",
+            "types-requests>=2.32.0",
         ],
     },
     entry_points={

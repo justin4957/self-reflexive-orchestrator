@@ -5,3 +5,22 @@ target-version = ['py39']
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_calls = false
+no_implicit_optional = false
+warn_redundant_casts = true
+warn_unused_ignores = false
+warn_no_return = false
+warn_unreachable = false
+strict_equality = false
+ignore_missing_imports = true
+# Key setting: catch incorrect function calls and parameter names
+disallow_untyped_decorators = false
+strict_optional = false
