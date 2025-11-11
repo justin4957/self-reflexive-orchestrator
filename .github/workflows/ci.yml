@@ -75,10 +75,7 @@ jobs:
 
     - name: Type check with mypy
       run: |
-        # Type checking enabled - currently reporting only
-        # TODO: Remove '|| true' once existing type errors are fixed
-        mypy src tests || true
-      continue-on-error: true
+        mypy src tests
 
   build:
     name: Build Package
