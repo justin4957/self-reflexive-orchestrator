@@ -217,7 +217,7 @@ class SlackNotifier:
             "critical": "🚨",
         }.get(event.severity, "ℹ️")
 
-        blocks = [
+        blocks: List[Dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {
@@ -236,7 +236,7 @@ class SlackNotifier:
 
         # Add metadata fields
         if event.metadata:
-            fields = []
+            fields: List[Dict[str, Any]] = []
             for key, value in event.metadata.items():
                 fields.append(
                     {
@@ -685,7 +685,7 @@ class NotificationManager:
         Returns:
             List of NotificationResults
         """
-        results = []
+        results: List[NotificationResult] = []
 
         # Check if event is enabled
         if event.event_type not in self.enabled_events:
