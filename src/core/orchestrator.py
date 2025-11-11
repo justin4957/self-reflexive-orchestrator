@@ -271,11 +271,11 @@ class Orchestrator:
 
         # Initialize multi-agent-coder client with LLM caching
         self.multi_agent_coder = MultiAgentCoderClient(
-            executable_path=self.config.multi_agent_coder.executable_path,
+            multi_agent_coder_path=self.config.multi_agent_coder.executable_path,
             logger=self.logger,
             default_strategy=self.config.multi_agent_coder.default_strategy,
             default_providers=self.config.multi_agent_coder.default_providers,
-            timeout=self.config.multi_agent_coder.query_timeout,
+            cost_tracker=self.cost_tracker,
             llm_cache=self.llm_cache,
             enable_cache=True,
         )
