@@ -398,19 +398,85 @@ Format your response with clear sections and bullet points.
     def _extract_implementation_steps(
         self, approaches: MultiAgentResponse
     ) -> List[ImplementationStep]:
-        """Extract implementation steps from multi-agent responses."""
+        """Extract implementation steps from multi-agent responses.
+
+        Uses multiple regex patterns to match various step formats:
+        - "1. Description"
+        - "Step 1: Description"
+        - "1) Description"
+        - "**1.** Description"
+        """
         all_steps = []
 
         for provider, response in approaches.responses.items():
-            # Look for numbered steps
-            step_matches = re.findall(
-                r"(?:^|\n)\s*(\d+)\.\s*\*?\*?(.+?)(?:\n|$)", response, re.MULTILINE
+            # Add debug logging for response content
+            self.logger.debug(
+                "Extracting steps from provider response",
+                provider=provider,
+                response_length=len(response),
+                response_preview=response[:500],
             )
 
-            for step_num_str, description in step_matches:
+            # Pattern 1: Standard numbered list "1. Description" (with optional bold)
+            # Uses DOTALL to capture multi-line descriptions
+            pattern1 = re.findall(
+                r"(?:^|\n)\s*(\d+)\.\s*\*?\*?(.+?)(?=\n\s*\d+\.|$)",
+                response,
+                re.MULTILINE | re.DOTALL,
+            )
+
+            # Pattern 2: Step prefix "Step 1: Description" or "Step 1 - Description"
+            pattern2 = re.findall(
+                r"Step\s+(\d+)[:\-]\s*(.+?)(?=\n\s*Step\s+\d+|$)",
+                response,
+                re.IGNORECASE | re.DOTALL,
+            )
+
+            # Pattern 3: Parenthesis numbered list "1) Description"
+            pattern3 = re.findall(
+                r"(?:^|\n)\s*(\d+)\)\s*(.+?)(?=\n\s*\d+\)|$)",
+                response,
+                re.MULTILINE | re.DOTALL,
+            )
+
+            # Pattern 4: Bold markdown "**1.** Description"
+            pattern4 = re.findall(
+                r"(?:^|\n)\s*\*\*(\d+)\.\*\*\s*(.+?)(?=\n\s*\*\*\d+\.\*\*|$)",
+                response,
+                re.MULTILINE | re.DOTALL,
+            )
+
+            # Combine all pattern matches
+            all_patterns = pattern1 + pattern2 + pattern3 + pattern4
+
+            # Log extraction results
+            self.logger.debug(
+                "Step extraction pattern matches",
+                provider=provider,
+                pattern1_matches=len(pattern1),
+                pattern2_matches=len(pattern2),
+                pattern3_matches=len(pattern3),
+                pattern4_matches=len(pattern4),
+                total_matches=len(all_patterns),
+            )
+
+            # Warn if no steps extracted
+            if not all_patterns:
+                self.logger.warning(
+                    "No implementation steps extracted from provider response",
+                    provider=provider,
+                    response_length=len(response),
+                    response_preview=response[:1000],
+                )
+
+            # Process extracted steps
+            for step_num_str, description in all_patterns:
                 try:
                     step_num = int(step_num_str)
                     if step_num <= 20:  # Reasonable limit
+                        # Clean description (remove excessive whitespace)
+                        description = " ".join(description.split())
+
                         # Extract complexity if mentioned
                         complexity_match = re.search(
                             r"complexity[:\s]+(\d+)", description, re.IGNORECASE
@@ -436,10 +502,28 @@ Format your response with clear sections and bullet points.
                             }
                         )
                 except ValueError:
+                    self.logger.debug(
+                        "Skipping invalid step number",
+                        step_num_str=step_num_str,
+                        provider=provider,
+                    )
                     continue
+
+        # Log total extraction results
+        self.logger.debug(
+            "Total steps extracted before merging",
+            total_steps=len(all_steps),
+            unique_providers=len(set(s["provider"] for s in all_steps)),
+        )
 
         # Deduplicate and merge similar steps
         merged_steps = self._merge_similar_steps(all_steps)
+
+        self.logger.debug(
+            "Steps after merging",
+            merged_count=len(merged_steps),
+            original_count=len(all_steps),
+        )
 
         return merged_steps
 

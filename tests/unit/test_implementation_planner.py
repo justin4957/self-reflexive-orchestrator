@@ -150,6 +150,136 @@ class TestImplementationPlanner(unittest.TestCase):
         self.assertEqual(steps[0].estimated_complexity, 3)
         self.assertIn("src/analyzers/base.py", steps[0].files_affected)
 
+    def test_extract_implementation_steps_step_prefix_format(self):
+        """Test extracting steps with 'Step N:' prefix format."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={
+                "anthropic": """
+                Implementation Approach:
+                Step 1: Create base analyzer class in `src/analyzers/base.py` (complexity: 3)
+                Step 2: Implement analysis logic (complexity: 7)
+                Step 3: Add unit tests in `tests/unit/test_analyzer.py`
+                """
+            },
+            strategy="all",
+            total_tokens=1000,
+            total_cost=0.01,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        self.assertEqual(len(steps), 3)
+        self.assertEqual(steps[0].step_number, 1)
+        self.assertEqual(steps[0].estimated_complexity, 3)
+        self.assertIn("src/analyzers/base.py", steps[0].files_affected)
+
+    def test_extract_implementation_steps_parenthesis_format(self):
+        """Test extracting steps with parenthesis format '1)'."""
+        mock_response = MultiAgentResponse(
+            providers=["deepseek"],
+            responses={
+                "deepseek": """
+                Steps to implement:
+                1) Create base analyzer class in `src/analyzers/base.py` (complexity: 3)
+                2) Implement analysis logic (complexity: 7)
+                3) Add unit tests in `tests/unit/test_analyzer.py`
+                """
+            },
+            strategy="all",
+            total_tokens=1000,
+            total_cost=0.01,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        self.assertEqual(len(steps), 3)
+        self.assertEqual(steps[0].step_number, 1)
+        self.assertEqual(steps[0].estimated_complexity, 3)
+        self.assertIn("src/analyzers/base.py", steps[0].files_affected)
+
+    def test_extract_implementation_steps_bold_format(self):
+        """Test extracting steps with bold markdown format '**1.**'."""
+        mock_response = MultiAgentResponse(
+            providers=["openai"],
+            responses={
+                "openai": """
+                Implementation Plan:
+                **1.** Create base analyzer class in `src/analyzers/base.py` (complexity: 3)
+                **2.** Implement analysis logic (complexity: 7)
+                **3.** Add unit tests in `tests/unit/test_analyzer.py`
+                """
+            },
+            strategy="all",
+            total_tokens=1000,
+            total_cost=0.01,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        self.assertEqual(len(steps), 3)
+        self.assertEqual(steps[0].step_number, 1)
+        self.assertEqual(steps[0].estimated_complexity, 3)
+        self.assertIn("src/analyzers/base.py", steps[0].files_affected)
+
+    def test_extract_implementation_steps_multiline_descriptions(self):
+        """Test extracting steps with multi-line descriptions."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={
+                "anthropic": """
+                Implementation Steps:
+                1. Create base analyzer class in `src/analyzers/base.py` (complexity: 3)
+                   This step involves creating the base class with proper inheritance
+                   and implementing the core abstract methods.
+
+                2. Implement analysis logic (complexity: 7)
+                   This is the main implementation that processes the data
+                   and generates the analysis results.
+
+                3. Add unit tests in `tests/unit/test_analyzer.py`
+                """
+            },
+            strategy="all",
+            total_tokens=1000,
+            total_cost=0.01,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        self.assertEqual(len(steps), 3)
+        self.assertEqual(steps[0].step_number, 1)
+        # First line is captured (main description)
+        self.assertIn("analyzer class", steps[0].description.lower())
+        self.assertIn("src/analyzers/base.py", steps[0].files_affected)
+
+    def test_extract_implementation_steps_no_matches(self):
+        """Test handling when no steps can be extracted."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={
+                "anthropic": """
+                This is a response without any numbered steps.
+                It just contains general information about the task.
+                """
+            },
+            strategy="all",
+            total_tokens=1000,
+            total_cost=0.01,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        # Should return empty list but not crash
+        self.assertEqual(len(steps), 0)
+        # Should have logged warning (verify via mock)
+        self.logger.warning.assert_called()
+
     def test_merge_similar_steps(self):
         """Test merging similar steps from different providers."""
         all_steps = [
