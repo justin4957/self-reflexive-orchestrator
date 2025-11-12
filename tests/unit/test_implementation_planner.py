@@ -258,7 +258,7 @@ class TestImplementationPlanner(unittest.TestCase):
         self.assertIn("src/analyzers/base.py", steps[0].files_affected)
 
     def test_extract_implementation_steps_no_matches(self):
-        """Test handling when no steps can be extracted."""
+        """Test handling when no steps can be extracted - uses fallback."""
         mock_response = MultiAgentResponse(
             providers=["anthropic"],
             responses={
@@ -273,10 +273,18 @@ class TestImplementationPlanner(unittest.TestCase):
             success=True,
         )
 
+        # Set up cached files (empty for this test)
+        self.planner._cached_files_to_modify = []
+        self.planner._cached_files_to_create = []
+
         steps = self.planner._extract_implementation_steps(mock_response)
 
-        # Should return empty list but not crash
-        self.assertEqual(len(steps), 0)
+        # Should return fallback steps (1 generic + 1 test = 2 total)
+        self.assertEqual(len(steps), 2)
+        # Should have generic implementation step
+        self.assertIn("Implement solution", steps[0].description)
+        # Should have test step
+        self.assertIn("test", steps[1].description.lower())
         # Should have logged warning (verify via mock)
         self.logger.warning.assert_called()
 
@@ -743,6 +751,99 @@ class TestImplementationPlanner(unittest.TestCase):
         self.assertEqual(PlanConfidence.MEDIUM.value, "medium")
         self.assertEqual(PlanConfidence.HIGH.value, "high")
         self.assertEqual(PlanConfidence.VERY_HIGH.value, "very_high")
+
+    def test_generate_fallback_steps_with_files(self):
+        """Test fallback step generation when files are identified."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={"anthropic": "Some response without steps"},
+            strategy="all",
+            total_tokens=100,
+            total_cost=0.001,
+            success=True,
+        )
+
+        files_to_create = ["src/new_module.py"]
+        files_to_modify = ["src/existing.py", "tests/test_existing.py"]
+
+        steps = self.planner._generate_fallback_steps(
+            mock_response, files_to_modify, files_to_create
+        )
+
+        # Should have 1 create step + 2 modify steps + 1 test step = 4 total
+        self.assertEqual(len(steps), 4)
+
+        # Check create step
+        self.assertEqual(steps[0].step_number, 1)
+        self.assertIn("Create", steps[0].description)
+        self.assertIn("src/new_module.py", steps[0].description)
+        self.assertEqual(steps[0].files_affected, ["src/new_module.py"])
+
+        # Check modify steps
+        self.assertEqual(steps[1].step_number, 2)
+        self.assertIn("Modify", steps[1].description)
+        self.assertIn("src/existing.py", steps[1].description)
+
+        self.assertEqual(steps[2].step_number, 3)
+        self.assertIn("Modify", steps[2].description)
+        self.assertIn("tests/test_existing.py", steps[2].description)
+
+        # Check test step
+        self.assertEqual(steps[3].step_number, 4)
+        self.assertIn("tests", steps[3].description.lower())
+        self.assertEqual(steps[3].estimated_complexity, 3)
+        self.assertEqual(steps[3].dependencies, [1, 2, 3])
+
+    def test_generate_fallback_steps_no_files(self):
+        """Test fallback step generation when no files identified."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={"anthropic": "Some response without steps or files"},
+            strategy="all",
+            total_tokens=100,
+            total_cost=0.001,
+            success=True,
+        )
+
+        steps = self.planner._generate_fallback_steps(mock_response, [], [])
+
+        # Should have 1 generic step + 1 test step = 2 total
+        self.assertEqual(len(steps), 2)
+
+        # Check generic implementation step
+        self.assertEqual(steps[0].step_number, 1)
+        self.assertIn("Implement solution", steps[0].description)
+        self.assertEqual(steps[0].estimated_complexity, 7)
+        self.assertEqual(steps[0].files_affected, [])
+
+        # Check test step
+        self.assertEqual(steps[1].step_number, 2)
+        self.assertIn("tests", steps[1].description.lower())
+        self.assertEqual(steps[1].dependencies, [1])
+
+    def test_extract_implementation_steps_uses_fallback(self):
+        """Test that extraction uses fallback when no steps found."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={"anthropic": "Response with no numbered steps at all"},
+            strategy="all",
+            total_tokens=100,
+            total_cost=0.001,
+            success=True,
+        )
+
+        # Set up cached files
+        self.planner._cached_files_to_modify = ["src/main.py"]
+        self.planner._cached_files_to_create = ["src/new.py"]
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        # Should have fallback steps
+        self.assertGreater(len(steps), 0)
+        # Should have at least test step
+        self.assertTrue(any("test" in step.description.lower() for step in steps))
+        # Should have logged warning
+        self.logger.warning.assert_called()
 
 
 if __name__ == "__main__":

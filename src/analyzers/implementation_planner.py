@@ -144,6 +144,10 @@ class ImplementationPlanner:
         self.high_confidence_plans = 0
         self.low_confidence_plans = 0
 
+        # Cache for fallback step generation
+        self._cached_files_to_modify: List[str] = []
+        self._cached_files_to_create: List[str] = []
+
     def generate_plan(
         self,
         issue: Issue,
@@ -294,7 +298,11 @@ Format your response with clear sections and bullet points.
         files_to_modify = self._extract_files_to_modify(approaches)
         files_to_create = self._extract_files_to_create(approaches)
 
-        # Extract implementation steps
+        # Cache files for potential fallback use
+        self._cached_files_to_modify = files_to_modify
+        self._cached_files_to_create = files_to_create
+
+        # Extract implementation steps (may use cached files for fallback)
         implementation_steps = self._extract_implementation_steps(approaches)
 
         # Extract test strategy
@@ -525,6 +533,19 @@ Format your response with clear sections and bullet points.
             original_count=len(all_steps),
         )
 
+        # FALLBACK: Generate basic steps if extraction failed
+        if not merged_steps:
+            self.logger.warning(
+                "No steps extracted from AI responses, generating fallback steps",
+                files_to_modify=len(self._cached_files_to_modify),
+                files_to_create=len(self._cached_files_to_create),
+            )
+            merged_steps = self._generate_fallback_steps(
+                approaches,
+                self._cached_files_to_modify,
+                self._cached_files_to_create,
+            )
+
         return merged_steps
 
     def _merge_similar_steps(
@@ -569,6 +590,89 @@ Format your response with clear sections and bullet points.
             )
 
         return merged
+
+    def _generate_fallback_steps(
+        self,
+        approaches: MultiAgentResponse,
+        files_to_modify: List[str],
+        files_to_create: List[str],
+    ) -> List[ImplementationStep]:
+        """Generate basic implementation steps when AI extraction fails.
+
+        Fallback strategy:
+        1. If files identified, create steps for each file
+        2. If no files, create generic implementation step
+        3. Always add testing step
+
+        Args:
+            approaches: Multi-agent responses (for logging context)
+            files_to_modify: List of files identified for modification
+            files_to_create: List of files identified for creation
+
+        Returns:
+            List of fallback implementation steps
+        """
+        steps = []
+        step_num = 1
+
+        # Steps for files to create
+        for file_path in files_to_create:
+            steps.append(
+                ImplementationStep(
+                    step_number=step_num,
+                    description=f"Create {file_path}",
+                    files_affected=[file_path],
+                    estimated_complexity=5,
+                    dependencies=[],
+                )
+            )
+            step_num += 1
+
+        # Steps for files to modify
+        for file_path in files_to_modify:
+            steps.append(
+                ImplementationStep(
+                    step_number=step_num,
+                    description=f"Modify {file_path} to implement requirements",
+                    files_affected=[file_path],
+                    estimated_complexity=5,
+                    dependencies=[],
+                )
+            )
+            step_num += 1
+
+        # If still no steps, create generic step
+        if not steps:
+            steps.append(
+                ImplementationStep(
+                    step_number=1,
+                    description="Implement solution based on issue requirements",
+                    files_affected=[],
+                    estimated_complexity=7,
+                    dependencies=[],
+                )
+            )
+            step_num = 2
+
+        # Always add testing step
+        steps.append(
+            ImplementationStep(
+                step_number=step_num,
+                description="Add/update tests for changes",
+                files_affected=[],
+                estimated_complexity=3,
+                dependencies=list(range(1, step_num)),  # Depends on all previous
+            )
+        )
+
+        self.logger.info(
+            "Generated fallback implementation steps",
+            fallback_steps=len(steps),
+            files_to_create=len(files_to_create),
+            files_to_modify=len(files_to_modify),
+        )
+
+        return steps
 
     def _extract_test_strategy(self, approaches: MultiAgentResponse) -> TestStrategy:
         """Extract test strategy from multi-agent responses."""
