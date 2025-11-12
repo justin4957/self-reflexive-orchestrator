@@ -399,7 +399,12 @@ class Orchestrator:
 
                     # Update state to in_progress
                     work_item.state = "in_progress"
-                    self.state_manager.update_work_item(work_item)
+                    self.state_manager.update_work_item(
+                        item_type=work_item.item_type,
+                        item_id=work_item.item_id,
+                        state=work_item.state,
+                        metadata=work_item.metadata,
+                    )
 
                     # Process through Phase 2 workflow
                     issue_number = work_item.metadata.get(
@@ -455,7 +460,12 @@ class Orchestrator:
 
                             # Update work item to completed
                             work_item.state = "completed"
-                            self.state_manager.update_work_item(work_item)
+                            self.state_manager.update_work_item(
+                                item_type=work_item.item_type,
+                                item_id=work_item.item_id,
+                                state=work_item.state,
+                                metadata=work_item.metadata,
+                            )
                         else:
                             self.logger.warning(
                                 f"Failed to process work item {work_item.item_id}",
