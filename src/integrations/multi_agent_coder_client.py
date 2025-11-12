@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ..core.cache import LLMCache
 from ..core.logger import AuditLogger
@@ -54,7 +54,7 @@ class MultiAgentCoderClient:
         self,
         multi_agent_coder_path: str,
         logger: AuditLogger,
-        default_strategy: MultiAgentStrategy = MultiAgentStrategy.ALL,
+        default_strategy: Union[MultiAgentStrategy, str] = MultiAgentStrategy.ALL,
         default_providers: Optional[List[str]] = None,
         cost_tracker: Optional[CostTracker] = None,
         llm_cache: Optional[LLMCache] = None,
@@ -65,7 +65,7 @@ class MultiAgentCoderClient:
         Args:
             multi_agent_coder_path: Path to multi_agent_coder executable
             logger: Audit logger instance
-            default_strategy: Default routing strategy to use
+            default_strategy: Default routing strategy to use (enum or string)
             default_providers: List of providers to use (None = use all available)
             cost_tracker: Optional cost tracker for tracking API costs
             llm_cache: Optional LLM cache for response caching
@@ -73,7 +73,12 @@ class MultiAgentCoderClient:
         """
         self.executable_path = Path(multi_agent_coder_path)
         self.logger = logger
-        self.default_strategy = default_strategy
+
+        # Convert string to enum if needed
+        if isinstance(default_strategy, str):
+            self.default_strategy = MultiAgentStrategy(default_strategy)
+        else:
+            self.default_strategy = default_strategy
         self.default_providers = default_providers or []
         self.cost_tracker = cost_tracker
         self.llm_cache = llm_cache
@@ -96,7 +101,7 @@ class MultiAgentCoderClient:
     def query(
         self,
         prompt: str,
-        strategy: Optional[MultiAgentStrategy] = None,
+        strategy: Optional[Union[MultiAgentStrategy, str]] = None,
         providers: Optional[List[str]] = None,
         timeout: int = 120,
         use_cache: bool = True,
@@ -105,7 +110,7 @@ class MultiAgentCoderClient:
 
         Args:
             prompt: The prompt to send to multi-agent-coder
-            strategy: Routing strategy (defaults to instance default)
+            strategy: Routing strategy (enum or string, defaults to instance default)
             providers: List of provider names to use (defaults to instance default)
             timeout: Timeout in seconds for the request
             use_cache: Whether to use cache for this query
@@ -117,7 +122,12 @@ class MultiAgentCoderClient:
             subprocess.TimeoutExpired: If query times out
             subprocess.CalledProcessError: If multi_agent_coder fails
         """
-        strategy = strategy or self.default_strategy
+        # Convert strategy to enum if needed
+        if strategy is None:
+            strategy = self.default_strategy
+        elif isinstance(strategy, str):
+            strategy = MultiAgentStrategy(strategy)
+
         providers = providers or self.default_providers
 
         # Check cache if enabled
