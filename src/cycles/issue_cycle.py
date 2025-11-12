@@ -300,7 +300,7 @@ class IssueMonitor:
             # Fetch fresh rate limit info
             try:
                 rate_limit = self.github.github.get_rate_limit()
-                core_limit = rate_limit.core  # type: ignore[attr-defined]
+                core_limit = rate_limit.resources.core
 
                 self._rate_limit_info = RateLimitInfo(
                     remaining=core_limit.remaining,
