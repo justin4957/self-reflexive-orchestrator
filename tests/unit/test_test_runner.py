@@ -112,6 +112,7 @@ class TestTestRunner(unittest.TestCase):
     def test_build_test_command_pytest(self):
         """Test pytest command building."""
         import sys
+
         command = self.runner._build_test_command(TestFramework.PYTEST)
         self.assertEqual(command[:3], [sys.executable, "-m", "pytest"])
         self.assertIn("-v", command)
