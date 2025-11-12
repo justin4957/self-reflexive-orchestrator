@@ -10,6 +10,7 @@ Supports multiple test frameworks:
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -297,13 +298,13 @@ class TestRunner:
         test_paths = test_paths or []
 
         if framework == TestFramework.PYTEST:
-            cmd = ["python", "-m", "pytest", "-v", "--tb=short"]
+            cmd = [sys.executable, "-m", "pytest", "-v", "--tb=short"]
             if test_paths:
                 cmd.extend(test_paths)
             return cmd
 
         elif framework == TestFramework.UNITTEST:
-            cmd = ["python", "-m", "unittest", "discover", "-v"]
+            cmd = [sys.executable, "-m", "unittest", "discover", "-v"]
             if test_paths:
                 cmd.extend(test_paths)
             return cmd
