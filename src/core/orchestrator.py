@@ -505,7 +505,13 @@ class Orchestrator:
                     # Mark as failed
                     work_item.state = "failed"
                     work_item.error = str(e)
-                    self.state_manager.update_work_item(work_item)
+                    self.state_manager.update_work_item(
+                        item_type=work_item.item_type,
+                        item_id=work_item.item_id,
+                        state=work_item.state,
+                        metadata=work_item.metadata,
+                        error=work_item.error,
+                    )
 
         except Exception as e:
             self.logger.error(
