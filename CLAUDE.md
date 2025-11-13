@@ -1,0 +1,1 @@
+- multi_agent_coder has configurable options for AI model usage, please use anthropic haiku for testing to save costs

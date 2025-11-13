@@ -456,29 +456,43 @@ class GitOps:
         except subprocess.CalledProcessError as e:
             raise GitOpsError(f"Failed to reset: {e.stderr}")
 
-    def _run_git_command(self, args: List[str]) -> str:
+    def _run_git_command(self, args: List[str], timeout: int = 30) -> str:
         """Run a git command in the repository.
 
         Args:
             args: Git command arguments (without 'git' prefix)
+            timeout: Timeout in seconds (default: 30)
 
         Returns:
             Command output as string
 
         Raises:
             subprocess.CalledProcessError: If command fails
+            subprocess.TimeoutExpired: If command times out
         """
         cmd = ["git"] + args
 
-        result = subprocess.run(
-            cmd,
-            cwd=str(self.repo_path),
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.repo_path),
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=timeout,
+            )
 
-        return result.stdout
+            return result.stdout
+
+        except subprocess.TimeoutExpired as e:
+            self.logger.error(
+                "Git command timed out",
+                command=cmd,
+                timeout=timeout,
+            )
+            raise GitOpsError(
+                f"Git command timed out after {timeout}s: {' '.join(cmd)}"
+            )
 
     def generate_commit_message(
         self,
