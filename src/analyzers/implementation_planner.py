@@ -587,8 +587,40 @@ Format your response with clear sections and bullet points.
         for step_num in sorted(steps_by_number.keys()):
             steps = steps_by_number[step_num]
 
-            # Use the most detailed description
-            description = max(steps, key=lambda s: len(s["description"]))["description"]
+            # Select best description (not too short, not overflow)
+            MAX_REASONABLE_DESC_LENGTH = 500  # Anything longer is likely full plan
+            MIN_REASONABLE_DESC_LENGTH = 10
+
+            # Filter to reasonable descriptions
+            reasonable_descs = [
+                s["description"]
+                for s in steps
+                if MIN_REASONABLE_DESC_LENGTH
+                <= len(s["description"])
+                <= MAX_REASONABLE_DESC_LENGTH
+            ]
+
+            # Pick the most detailed among reasonable ones, or fallback to shortest
+            if reasonable_descs:
+                description = max(reasonable_descs, key=len)
+            else:
+                # All descriptions are unreasonable, pick shortest (least overflow)
+                description = min(steps, key=lambda s: len(s["description"]))[
+                    "description"
+                ]
+                # Truncate if still too long
+                if len(description) > MAX_REASONABLE_DESC_LENGTH:
+                    description = description[:MAX_REASONABLE_DESC_LENGTH] + "..."
+                    self.logger.warning(
+                        "Truncated oversized step description",
+                        step_num=step_num,
+                        original_length=len(
+                            min(steps, key=lambda s: len(s["description"]))[
+                                "description"
+                            ]
+                        ),
+                        truncated_length=len(description),
+                    )
 
             # Combine all files mentioned
             all_files = set()
