@@ -350,7 +350,7 @@ import sys
         # def hello() keeps its 2-space indent since min_indent is 0
         self.assertEqual(lines[2], "  def hello():")
         # print("world") had 6 spaces, none stripped, so 6 remain
-        self.assertEqual(lines[3], "      print(\"world\")")
+        self.assertEqual(lines[3], '      print("world")')
 
 
 if __name__ == "__main__":
