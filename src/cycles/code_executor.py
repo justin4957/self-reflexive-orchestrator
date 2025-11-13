@@ -689,7 +689,7 @@ CRITICAL: Return raw Python code only. No markdown, no explanations, no code blo
             lines = lines[:-1]
 
         # Find minimum indentation (excluding empty lines)
-        min_indent = float("inf")
+        min_indent: float = float("inf")
         for line in lines:
             if line.strip():  # Skip empty lines
                 leading_spaces = len(line) - len(line.lstrip())
@@ -697,8 +697,10 @@ CRITICAL: Return raw Python code only. No markdown, no explanations, no code blo
 
         # If all lines have common leading whitespace, strip it
         if min_indent > 0 and min_indent != float("inf"):
+            min_indent_int = int(min_indent)
             lines = [
-                line[min_indent:] if len(line) > min_indent else line for line in lines
+                line[min_indent_int:] if len(line) > min_indent_int else line
+                for line in lines
             ]
 
         return "\n".join(lines)
