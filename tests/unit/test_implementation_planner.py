@@ -996,6 +996,105 @@ class TestImplementationPlanner(unittest.TestCase):
         self.assertEqual(merged[0].step_number, 1)
         self.assertEqual(merged[1].step_number, 2)
 
+    def test_merge_similar_steps_prevents_description_overflow(self):
+        """Test that merging prevents description overflow (Bug #138)."""
+        # Simulate one provider returning entire plan in step 1 description
+        oversized_description = "Step 1: " + ("x" * 600)  # Over 500 char limit
+        reasonable_description = "Create database schema"
+
+        all_steps = [
+            {
+                "step_number": 1,
+                "description": oversized_description,
+                "files_affected": ["models.py"],
+                "complexity": 5,
+                "provider": "provider1",
+            },
+            {
+                "step_number": 1,
+                "description": reasonable_description,
+                "files_affected": ["models.py"],
+                "complexity": 5,
+                "provider": "provider2",
+            },
+        ]
+
+        merged = self.planner._merge_similar_steps(all_steps)
+
+        # Should pick reasonable description, not oversized one
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0].description, reasonable_description)
+        self.assertLess(len(merged[0].description), 500)
+
+    def test_merge_similar_steps_truncates_all_oversized(self):
+        """Test truncation when all descriptions are oversized."""
+        # All providers return oversized descriptions
+        oversized_1 = "Step 1: " + ("x" * 800)
+        oversized_2 = "Step 1: " + ("y" * 700)
+
+        all_steps = [
+            {
+                "step_number": 1,
+                "description": oversized_1,
+                "files_affected": ["file1.py"],
+                "complexity": 5,
+                "provider": "provider1",
+            },
+            {
+                "step_number": 1,
+                "description": oversized_2,
+                "files_affected": ["file1.py"],
+                "complexity": 5,
+                "provider": "provider2",
+            },
+        ]
+
+        merged = self.planner._merge_similar_steps(all_steps)
+
+        # Should truncate to max length with ellipsis
+        self.assertEqual(len(merged), 1)
+        self.assertTrue(merged[0].description.endswith("..."))
+        self.assertLessEqual(len(merged[0].description), 503)  # 500 + "..."
+
+    def test_merge_similar_steps_prefers_detailed_within_limit(self):
+        """Test that merging prefers most detailed description within reasonable limit."""
+        short_desc = "Create schema"
+        medium_desc = "Create database schema with all required fields"
+        detailed_desc = (
+            "Create comprehensive database schema including all tables, "
+            "relationships, and indexes for the application"
+        )
+
+        all_steps = [
+            {
+                "step_number": 1,
+                "description": short_desc,
+                "files_affected": ["models.py"],
+                "complexity": 5,
+                "provider": "provider1",
+            },
+            {
+                "step_number": 1,
+                "description": medium_desc,
+                "files_affected": ["models.py"],
+                "complexity": 5,
+                "provider": "provider2",
+            },
+            {
+                "step_number": 1,
+                "description": detailed_desc,
+                "files_affected": ["models.py"],
+                "complexity": 5,
+                "provider": "provider3",
+            },
+        ]
+
+        merged = self.planner._merge_similar_steps(all_steps)
+
+        # Should pick most detailed (longest) reasonable description
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0].description, detailed_desc)
+
 
 if __name__ == "__main__":
     unittest.main()

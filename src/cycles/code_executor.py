@@ -688,6 +688,19 @@ CRITICAL: Return raw Python code only. No markdown, no explanations, no code blo
         if lines and lines[-1].strip().startswith("```"):
             lines = lines[:-1]
 
+        # Find minimum indentation (excluding empty lines)
+        min_indent = float("inf")
+        for line in lines:
+            if line.strip():  # Skip empty lines
+                leading_spaces = len(line) - len(line.lstrip())
+                min_indent = min(min_indent, leading_spaces)
+
+        # If all lines have common leading whitespace, strip it
+        if min_indent > 0 and min_indent != float("inf"):
+            lines = [
+                line[min_indent:] if len(line) > min_indent else line for line in lines
+            ]
+
         return "\n".join(lines)
 
     def _generate_placeholder_code(

@@ -285,6 +285,73 @@ class TestCodeExecutor(unittest.TestCase):
         self.assertEqual(result_dict["branch_name"], "test-branch")
         self.assertEqual(result_dict["total_files_changed"], 5)
 
+    def test_clean_generated_code_strips_leading_whitespace(self):
+        """Test that _clean_generated_code removes common leading whitespace."""
+        # Simulate markdown code block with indentation (Bug #137)
+        code_with_indent = """```python
+  def hello():
+      print("world")
+
+  hello()
+```"""
+
+        cleaned = self.executor._clean_generated_code(code_with_indent)
+
+        # Should strip the common 2-space indentation from markdown
+        lines = cleaned.split("\n")
+        self.assertEqual(lines[0], "def hello():")
+        # Relative indentation preserved: had 6 spaces (2 base + 4 indent), common 2 removed = 4 left
+        self.assertEqual(lines[1], '    print("world")')
+        self.assertEqual(lines[2], "")
+        self.assertEqual(lines[3], "hello()")
+
+        # Verify first line doesn't start with the common leading spaces
+        self.assertFalse(lines[0].startswith("  "))
+
+    def test_clean_generated_code_preserves_relative_indentation(self):
+        """Test that relative indentation is preserved while stripping common leading whitespace."""
+        code_with_indent = """```python
+    def outer():
+        def inner():
+            pass
+```"""
+
+        cleaned = self.executor._clean_generated_code(code_with_indent)
+
+        lines = cleaned.split("\n")
+        self.assertEqual(lines[0], "def outer():")
+        self.assertEqual(lines[1], "    def inner():")
+        self.assertEqual(lines[2], "        pass")
+
+    def test_clean_generated_code_no_markdown_blocks(self):
+        """Test cleaning code without markdown blocks."""
+        code_plain = """def test():
+    return 42"""
+
+        cleaned = self.executor._clean_generated_code(code_plain)
+
+        self.assertEqual(cleaned, code_plain)
+
+    def test_clean_generated_code_mixed_indentation(self):
+        """Test handling of mixed indentation (some lines at column 0)."""
+        code_mixed = """```python
+import sys
+
+  def hello():
+      print("world")
+```"""
+
+        cleaned = self.executor._clean_generated_code(code_mixed)
+
+        # With min indent of 0 (import sys), no common whitespace to strip
+        lines = cleaned.split("\n")
+        self.assertEqual(lines[0], "import sys")
+        self.assertEqual(lines[1], "")
+        # def hello() keeps its 2-space indent since min_indent is 0
+        self.assertEqual(lines[2], "  def hello():")
+        # print("world") had 6 spaces, none stripped, so 6 remain
+        self.assertEqual(lines[3], "      print(\"world\")")
+
 
 if __name__ == "__main__":
     unittest.main()
