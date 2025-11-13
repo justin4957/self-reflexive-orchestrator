@@ -762,19 +762,52 @@ pass
                     size=len(change.content),
                 )
 
-                # Auto-format Python files with black to ensure proper formatting
-                if file_full_path.suffix == ".py":
-                    self._format_python_file(file_full_path)
+                # Auto-format file with appropriate formatter
+                self._format_file(file_full_path)
 
-    def _format_python_file(self, file_path: Path) -> None:
-        """Format a Python file using black to fix indentation and style issues.
+    # Formatter configuration: file extension -> (formatter command, args)
+    FORMATTERS = {
+        ".py": ("black", ["--quiet"]),
+        ".js": ("prettier", ["--write"]),
+        ".jsx": ("prettier", ["--write"]),
+        ".ts": ("prettier", ["--write"]),
+        ".tsx": ("prettier", ["--write"]),
+        ".go": ("gofmt", ["-w"]),
+        ".rs": ("rustfmt", []),
+        ".java": ("google-java-format", ["-i"]),
+        ".c": ("clang-format", ["-i"]),
+        ".cpp": ("clang-format", ["-i"]),
+        ".h": ("clang-format", ["-i"]),
+        ".hpp": ("clang-format", ["-i"]),
+    }
+
+    def _format_file(self, file_path: Path) -> None:
+        """Auto-format a file using the appropriate formatter for its language.
+
+        Supports multiple languages with graceful fallback if formatter not available.
 
         Args:
-            file_path: Path to the Python file to format
+            file_path: Path to the file to format
         """
+        suffix = file_path.suffix.lower()
+
+        # Check if we have a formatter for this file type
+        if suffix not in self.FORMATTERS:
+            self.logger.debug(
+                "No formatter configured for file type",
+                file=str(file_path),
+                extension=suffix,
+            )
+            return
+
+        formatter_cmd, formatter_args = self.FORMATTERS[suffix]
+
         try:
+            # Build full command
+            cmd = [formatter_cmd] + formatter_args + [str(file_path)]
+
             result = subprocess.run(
-                ["black", "--quiet", str(file_path)],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -782,29 +815,35 @@ pass
 
             if result.returncode == 0:
                 self.logger.debug(
-                    "Auto-formatted Python file",
+                    "Auto-formatted file",
                     file=str(file_path),
+                    formatter=formatter_cmd,
                 )
             else:
                 self.logger.warning(
-                    "Black formatting failed",
+                    "Formatter failed",
                     file=str(file_path),
+                    formatter=formatter_cmd,
                     stderr=result.stderr,
                 )
         except FileNotFoundError:
-            self.logger.warning(
-                "Black formatter not found, skipping auto-format",
+            self.logger.debug(
+                "Formatter not found, skipping auto-format",
                 file=str(file_path),
+                formatter=formatter_cmd,
+                hint=f"Install {formatter_cmd} for automatic formatting",
             )
         except subprocess.TimeoutExpired:
             self.logger.warning(
-                "Black formatting timed out",
+                "Formatter timed out",
                 file=str(file_path),
+                formatter=formatter_cmd,
             )
         except Exception as e:
             self.logger.warning(
-                "Black formatting error",
+                "Formatter error",
                 file=str(file_path),
+                formatter=formatter_cmd,
                 error=str(e),
             )
 
