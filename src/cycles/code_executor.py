@@ -1,6 +1,7 @@
 """Code execution engine for implementing changes based on implementation plans."""
 
 import os
+import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -760,6 +761,52 @@ pass
                     type=change.change_type,
                     size=len(change.content),
                 )
+
+                # Auto-format Python files with black to ensure proper formatting
+                if file_full_path.suffix == ".py":
+                    self._format_python_file(file_full_path)
+
+    def _format_python_file(self, file_path: Path) -> None:
+        """Format a Python file using black to fix indentation and style issues.
+
+        Args:
+            file_path: Path to the Python file to format
+        """
+        try:
+            result = subprocess.run(
+                ["black", "--quiet", str(file_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                self.logger.debug(
+                    "Auto-formatted Python file",
+                    file=str(file_path),
+                )
+            else:
+                self.logger.warning(
+                    "Black formatting failed",
+                    file=str(file_path),
+                    stderr=result.stderr,
+                )
+        except FileNotFoundError:
+            self.logger.warning(
+                "Black formatter not found, skipping auto-format",
+                file=str(file_path),
+            )
+        except subprocess.TimeoutExpired:
+            self.logger.warning(
+                "Black formatting timed out",
+                file=str(file_path),
+            )
+        except Exception as e:
+            self.logger.warning(
+                "Black formatting error",
+                file=str(file_path),
+                error=str(e),
+            )
 
     def _validate_changes(
         self,
