@@ -481,34 +481,53 @@ Format your response with clear sections and bullet points.
             for step_num_str, description in all_patterns:
                 try:
                     step_num = int(step_num_str)
-                    if step_num <= 20:  # Reasonable limit
-                        # Clean description (remove excessive whitespace)
-                        description = " ".join(description.split())
 
-                        # Extract complexity if mentioned
-                        complexity_match = re.search(
-                            r"complexity[:\s]+(\d+)", description, re.IGNORECASE
+                    # Validate step number (must be 1-20, not 0)
+                    if step_num == 0 or step_num > 20:
+                        self.logger.debug(
+                            "Skipping invalid step number",
+                            step_num=step_num,
+                            provider=provider,
                         )
-                        complexity = (
-                            int(complexity_match.group(1)) if complexity_match else 5
-                        )
-                        complexity = min(complexity, self.MAX_STEP_COMPLEXITY)
+                        continue
 
-                        # Extract file mentions in this step
-                        files_in_step = re.findall(
-                            r"`([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`",
-                            description,
-                        )
+                    # Clean description (remove excessive whitespace)
+                    description = " ".join(description.split())
 
-                        all_steps.append(
-                            {
-                                "step_number": step_num,
-                                "description": description.strip(),
-                                "files_affected": files_in_step,
-                                "complexity": complexity,
-                                "provider": provider,
-                            }
+                    # Validate description is meaningful (not just a number or too short)
+                    if len(description) < 5 or description.isdigit():
+                        self.logger.debug(
+                            "Skipping step with invalid description",
+                            step_num=step_num,
+                            description=description,
+                            provider=provider,
                         )
+                        continue
+
+                    # Extract complexity if mentioned
+                    complexity_match = re.search(
+                        r"complexity[:\s]+(\d+)", description, re.IGNORECASE
+                    )
+                    complexity = (
+                        int(complexity_match.group(1)) if complexity_match else 5
+                    )
+                    complexity = min(complexity, self.MAX_STEP_COMPLEXITY)
+
+                    # Extract file mentions in this step
+                    files_in_step = re.findall(
+                        r"`([a-zA-Z0-9_/]+\.(?:py|yaml|yml|json|md|txt))`",
+                        description,
+                    )
+
+                    all_steps.append(
+                        {
+                            "step_number": step_num,
+                            "description": description.strip(),
+                            "files_affected": files_in_step,
+                            "complexity": complexity,
+                            "provider": provider,
+                        }
+                    )
                 except ValueError:
                     self.logger.debug(
                         "Skipping invalid step number",
@@ -589,7 +608,55 @@ Format your response with clear sections and bullet points.
                 )
             )
 
+        # Renumber steps to ensure sequential numbering starting from 1
+        merged = self._renumber_steps(merged)
+
         return merged
+
+    def _renumber_steps(
+        self, steps: List[ImplementationStep]
+    ) -> List[ImplementationStep]:
+        """Renumber steps to be sequential starting from 1.
+
+        This ensures steps are always numbered 1, 2, 3, ... regardless of
+        the original numbering from provider responses.
+
+        Args:
+            steps: List of implementation steps (may have gaps or start != 1)
+
+        Returns:
+            List of steps with sequential numbering starting from 1
+        """
+        if not steps:
+            return steps
+
+        renumbered = []
+        for new_num, step in enumerate(steps, start=1):
+            # Update dependencies to match new numbering if needed
+            old_to_new_mapping = {
+                steps[i].step_number: i + 1 for i in range(len(steps))
+            }
+            new_dependencies = [
+                old_to_new_mapping.get(dep, dep) for dep in step.dependencies
+            ]
+
+            renumbered.append(
+                ImplementationStep(
+                    step_number=new_num,
+                    description=step.description,
+                    files_affected=step.files_affected,
+                    estimated_complexity=step.estimated_complexity,
+                    dependencies=new_dependencies,
+                )
+            )
+
+        self.logger.debug(
+            "Renumbered implementation steps",
+            original_count=len(steps),
+            final_count=len(renumbered),
+        )
+
+        return renumbered
 
     def _generate_fallback_steps(
         self,

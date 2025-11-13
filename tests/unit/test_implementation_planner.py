@@ -845,6 +845,157 @@ class TestImplementationPlanner(unittest.TestCase):
         # Should have logged warning
         self.logger.warning.assert_called()
 
+    def test_extract_implementation_steps_skips_step_zero(self):
+        """Test that step 0 is skipped during extraction."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={
+                "anthropic": """
+                0. This should be skipped
+                1. Create module
+                2. Add tests
+                """
+            },
+            strategy="all",
+            total_tokens=100,
+            total_cost=0.001,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        # Should have only steps 1 and 2, not step 0
+        self.assertEqual(len(steps), 2)
+        self.assertEqual(steps[0].step_number, 1)
+        self.assertEqual(steps[1].step_number, 2)
+        # Verify step 0 was logged as skipped
+        self.logger.debug.assert_any_call(
+            "Skipping invalid step number",
+            step_num=0,
+            provider="anthropic",
+        )
+
+    def test_extract_implementation_steps_skips_numeric_only_description(self):
+        """Test that steps with numeric-only descriptions are skipped."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={
+                "anthropic": """
+                1. Create implementation
+                2. 25
+                3. Add tests
+                """
+            },
+            strategy="all",
+            total_tokens=100,
+            total_cost=0.001,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        # Should have steps 1 and 3, not step 2 with description "25"
+        self.assertEqual(len(steps), 2)
+        self.assertEqual(steps[0].step_number, 1)
+        self.assertEqual(steps[1].step_number, 2)  # Renumbered from 3 to 2
+        # Verify steps don't have numeric-only descriptions
+        for step in steps:
+            self.assertFalse(step.description.isdigit())
+
+    def test_extract_implementation_steps_skips_short_description(self):
+        """Test that steps with very short descriptions are skipped."""
+        mock_response = MultiAgentResponse(
+            providers=["anthropic"],
+            responses={
+                "anthropic": """
+                1. Create module implementation
+                2. Do
+                3. Add comprehensive tests
+                """
+            },
+            strategy="all",
+            total_tokens=100,
+            total_cost=0.001,
+            success=True,
+        )
+
+        steps = self.planner._extract_implementation_steps(mock_response)
+
+        # Should have steps 1 and 3, not step 2 with description "Do"
+        self.assertEqual(len(steps), 2)
+        # All descriptions should be meaningful
+        for step in steps:
+            self.assertGreaterEqual(len(step.description), 5)
+
+    def test_renumber_steps(self):
+        """Test step renumbering to sequential 1, 2, 3..."""
+        original_steps = [
+            ImplementationStep(
+                step_number=2,
+                description="Second step (renumber to 1)",
+                files_affected=["file1.py"],
+                estimated_complexity=5,
+                dependencies=[],
+            ),
+            ImplementationStep(
+                step_number=5,
+                description="Fifth step (renumber to 2)",
+                files_affected=["file2.py"],
+                estimated_complexity=6,
+                dependencies=[2],
+            ),
+            ImplementationStep(
+                step_number=7,
+                description="Seventh step (renumber to 3)",
+                files_affected=["file3.py"],
+                estimated_complexity=4,
+                dependencies=[2, 5],
+            ),
+        ]
+
+        renumbered = self.planner._renumber_steps(original_steps)
+
+        # Should be numbered 1, 2, 3
+        self.assertEqual(len(renumbered), 3)
+        self.assertEqual(renumbered[0].step_number, 1)
+        self.assertEqual(renumbered[1].step_number, 2)
+        self.assertEqual(renumbered[2].step_number, 3)
+
+        # Dependencies should be updated
+        self.assertEqual(renumbered[1].dependencies, [1])  # Was [2]
+        self.assertEqual(renumbered[2].dependencies, [1, 2])  # Was [2, 5]
+
+    def test_renumber_steps_empty_list(self):
+        """Test renumbering empty step list."""
+        renumbered = self.planner._renumber_steps([])
+        self.assertEqual(renumbered, [])
+
+    def test_merge_similar_steps_calls_renumber(self):
+        """Test that merging calls renumbering to ensure sequential steps."""
+        all_steps = [
+            {
+                "step_number": 3,  # Non-sequential
+                "description": "Create module",
+                "files_affected": ["src/module.py"],
+                "complexity": 5,
+                "provider": "anthropic",
+            },
+            {
+                "step_number": 7,  # Gap in numbering
+                "description": "Add tests",
+                "files_affected": ["tests/test_module.py"],
+                "complexity": 3,
+                "provider": "anthropic",
+            },
+        ]
+
+        merged = self.planner._merge_similar_steps(all_steps)
+
+        # Should be renumbered to 1, 2
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0].step_number, 1)
+        self.assertEqual(merged[1].step_number, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
