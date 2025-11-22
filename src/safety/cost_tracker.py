@@ -3,7 +3,7 @@
 Tracks costs, tokens, and requests for:
 - GitHub API
 - Anthropic API (Claude)
-- Multi-agent-coder (Anthropic, DeepSeek, OpenAI, Perplexity)
+- Multi-agent-coder (Anthropic, DeepSeek, OpenAI, Gemini, Perplexity)
 
 Enforces daily cost ceilings and provides usage reports.
 """
@@ -26,6 +26,7 @@ class Provider(Enum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     PERPLEXITY = "perplexity"
+    GEMINI = "gemini"
 
 
 class CostLimitExceeded(Exception):
@@ -162,6 +163,10 @@ class CostTracker:
         Provider.PERPLEXITY: {
             "input": 0.002,  # $2 per 1M tokens (estimated)
             "output": 0.002,
+        },
+        Provider.GEMINI: {
+            "input": 0.002,  # $2 per 1M input tokens (Gemini Pro)
+            "output": 0.006,  # $6 per 1M output tokens
         },
         Provider.GITHUB: {
             "request": 0.0,  # GitHub API is free (rate limited)
@@ -330,12 +335,12 @@ class CostTracker:
         """
         total_cost = 0.0
 
-        # Assume all 4 providers are used
+        # Assume all providers are used
         providers = [
             Provider.ANTHROPIC,
             Provider.DEEPSEEK,
             Provider.OPENAI,
-            Provider.PERPLEXITY,
+            Provider.GEMINI,
         ]
 
         for provider in providers[:num_providers]:
