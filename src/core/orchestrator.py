@@ -287,6 +287,8 @@ class Orchestrator:
             cost_tracker=self.cost_tracker,
             llm_cache=self.llm_cache,
             enable_cache=True,
+            max_retries=self.config.multi_agent_coder.max_retries,
+            retry_delay=self.config.multi_agent_coder.retry_delay,
         )
 
         # Initialize test runner
