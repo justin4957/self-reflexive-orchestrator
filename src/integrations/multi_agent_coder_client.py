@@ -221,8 +221,8 @@ class MultiAgentCoderClient:
         )
 
         # Retry loop with exponential backoff for rate limits
-        last_response = None
-        last_exception = None
+        last_response: Optional[MultiAgentResponse] = None
+        last_exception: Optional[Exception] = None
         for retry_attempt in range(self.max_retries + 1):
             try:
                 # Execute multi_agent_coder
