@@ -86,6 +86,8 @@ class MultiAgentCoderConfig:
     query_timeout: int = 120  # seconds
     enable_for_issue_analysis: bool = True
     enable_for_code_review: bool = True
+    max_retries: int = 3  # Maximum retries on rate limit errors
+    retry_delay: float = 2.0  # Initial delay between retries (exponential backoff)
 
 
 @dataclass

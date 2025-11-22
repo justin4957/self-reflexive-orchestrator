@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -59,6 +60,8 @@ class MultiAgentCoderClient:
         cost_tracker: Optional[CostTracker] = None,
         llm_cache: Optional[LLMCache] = None,
         enable_cache: bool = True,
+        max_retries: int = 3,
+        retry_delay: float = 2.0,
     ):
         """Initialize multi-agent-coder client.
 
@@ -70,6 +73,8 @@ class MultiAgentCoderClient:
             cost_tracker: Optional cost tracker for tracking API costs
             llm_cache: Optional LLM cache for response caching
             enable_cache: Whether to enable caching
+            max_retries: Maximum number of retries on rate limit errors
+            retry_delay: Initial delay between retries in seconds (exponential backoff)
         """
         self.executable_path = Path(multi_agent_coder_path)
         self.logger = logger
@@ -83,6 +88,8 @@ class MultiAgentCoderClient:
         self.cost_tracker = cost_tracker
         self.llm_cache = llm_cache
         self.enable_cache = enable_cache
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
         # Verify executable exists
         if not self.executable_path.exists():
@@ -97,6 +104,43 @@ class MultiAgentCoderClient:
         self.provider_usage: Dict[str, int] = {}
         self.cache_hits = 0
         self.cache_misses = 0
+        self.retry_count = 0
+        self.rate_limit_count = 0
+
+    def _has_rate_limit_error(self, response: MultiAgentResponse) -> bool:
+        """Check if response contains rate limit errors.
+
+        Args:
+            response: Multi-agent response to check
+
+        Returns:
+            True if any provider hit rate limits
+        """
+        for provider_response in response.responses.values():
+            if (
+                "rate_limit" in provider_response.lower()
+                or "rate limit" in provider_response.lower()
+            ):
+                return True
+        return False
+
+    def _get_rate_limited_providers(self, response: MultiAgentResponse) -> List[str]:
+        """Get list of providers that hit rate limits.
+
+        Args:
+            response: Multi-agent response to check
+
+        Returns:
+            List of provider names that hit rate limits
+        """
+        rate_limited = []
+        for provider, provider_response in response.responses.items():
+            if (
+                "rate_limit" in provider_response.lower()
+                or "rate limit" in provider_response.lower()
+            ):
+                rate_limited.append(provider)
+        return rate_limited
 
     def query(
         self,
@@ -176,94 +220,140 @@ class MultiAgentCoderClient:
             prompt_length=len(prompt),
         )
 
-        try:
-            # Execute multi_agent_coder
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=self.executable_path.parent,
-            )
-
-            # Parse output
-            response = self._parse_output(result.stdout, result.stderr)
-
-            # Update statistics
-            self.total_calls += 1
-            self.total_tokens += response.total_tokens
-            self.total_cost += response.total_cost
-            for provider in response.providers:
-                self.provider_usage[provider] = self.provider_usage.get(provider, 0) + 1
-
-            # Track costs with cost tracker
-            if self.cost_tracker and response.success:
-                self._track_costs(response)
-
-            # Cache successful response
-            if self.enable_cache and use_cache and self.llm_cache and response.success:
-                self.llm_cache.cache.set(
-                    cache_key, response, ttl_seconds=86400, tags=["multi_agent"]
+        # Retry loop with exponential backoff for rate limits
+        last_response: Optional[MultiAgentResponse] = None
+        last_exception: Optional[Exception] = None
+        for retry_attempt in range(self.max_retries + 1):
+            try:
+                # Execute multi_agent_coder
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    cwd=self.executable_path.parent,
                 )
 
-            self.logger.info(
-                "multi-agent-coder query completed",
-                providers=response.providers,
-                tokens=response.total_tokens,
-                cost=response.total_cost,
-                success=response.success,
-            )
+                # Parse output
+                response = self._parse_output(result.stdout, result.stderr)
+                last_response = response
 
-            return response
+                # Check for rate limit errors
+                if self._has_rate_limit_error(response):
+                    rate_limited_providers = self._get_rate_limited_providers(response)
+                    self.rate_limit_count += 1
 
-        except subprocess.TimeoutExpired as e:
-            self.logger.error(
-                "multi-agent-coder query timed out",
-                timeout=timeout,
-                exc_info=True,
-            )
-            return MultiAgentResponse(
-                providers=[],
-                responses={},
-                strategy=strategy.value,
-                total_tokens=0,
-                total_cost=0.0,
-                success=False,
-                error=f"Query timed out after {timeout}s",
-            )
+                    # If we have retries left, wait and retry
+                    if retry_attempt < self.max_retries:
+                        delay = self.retry_delay * (2**retry_attempt)
+                        self.retry_count += 1
 
-        except subprocess.CalledProcessError as e:
-            self.logger.error(
-                "multi-agent-coder execution failed",
-                error=e.stderr,
-                return_code=e.returncode,
-                exc_info=True,
-            )
-            return MultiAgentResponse(
-                providers=[],
-                responses={},
-                strategy=strategy.value,
-                total_tokens=0,
-                total_cost=0.0,
-                success=False,
-                error=f"Execution failed: {e.stderr}",
-            )
+                        self.logger.warning(
+                            "Rate limit detected, retrying",
+                            rate_limited_providers=rate_limited_providers,
+                            retry_attempt=retry_attempt + 1,
+                            max_retries=self.max_retries,
+                            delay_seconds=delay,
+                        )
 
-        except Exception as e:
-            self.logger.error(
-                "Unexpected error calling multi-agent-coder",
-                error=str(e),
-                exc_info=True,
-            )
-            return MultiAgentResponse(
-                providers=[],
-                responses={},
-                strategy=strategy.value,
-                total_tokens=0,
-                total_cost=0.0,
-                success=False,
-                error=f"Unexpected error: {str(e)}",
-            )
+                        time.sleep(delay)
+                        continue  # Retry
+
+                    else:
+                        # Max retries reached, log and return partial results
+                        self.logger.warning(
+                            "Max retries reached with rate limits",
+                            rate_limited_providers=rate_limited_providers,
+                            successful_providers=len(response.providers),
+                        )
+
+                # Update statistics
+                self.total_calls += 1
+                self.total_tokens += response.total_tokens
+                self.total_cost += response.total_cost
+                for provider in response.providers:
+                    self.provider_usage[provider] = (
+                        self.provider_usage.get(provider, 0) + 1
+                    )
+
+                # Track costs with cost tracker
+                if self.cost_tracker and response.success:
+                    self._track_costs(response)
+
+                # Cache successful response (even if some providers hit rate limits)
+                if (
+                    self.enable_cache
+                    and use_cache
+                    and self.llm_cache
+                    and response.success
+                ):
+                    self.llm_cache.cache.set(
+                        cache_key, response, ttl_seconds=86400, tags=["multi_agent"]
+                    )
+
+                self.logger.info(
+                    "multi-agent-coder query completed",
+                    providers=response.providers,
+                    tokens=response.total_tokens,
+                    cost=response.total_cost,
+                    success=response.success,
+                    retry_attempt=retry_attempt if retry_attempt > 0 else None,
+                )
+
+                return response
+
+            except subprocess.TimeoutExpired as e:
+                # Don't retry on timeout, just fail
+                last_exception = e
+                self.logger.error(
+                    "multi-agent-coder query timed out",
+                    timeout=timeout,
+                    exc_info=True,
+                )
+                break
+            except subprocess.CalledProcessError as e:
+                # Don't retry on process errors, just fail
+                last_exception = e
+                self.logger.error(
+                    "multi-agent-coder execution failed",
+                    error=e.stderr if hasattr(e, "stderr") else str(e),
+                    return_code=e.returncode,
+                    exc_info=True,
+                )
+                break
+            except Exception as e:
+                # Don't retry on unexpected errors, just fail
+                last_exception = e
+                self.logger.error(
+                    "Unexpected error calling multi-agent-coder",
+                    error=str(e),
+                    exc_info=True,
+                )
+                break
+
+        # If we get here, we exhausted retries or hit an exception
+        if last_response:
+            return last_response
+
+        # No response available - return error response based on exception type
+        if isinstance(last_exception, subprocess.TimeoutExpired):
+            error_msg = f"Query timed out after {timeout}s"
+        elif isinstance(last_exception, subprocess.CalledProcessError):
+            error_msg = f"Execution failed: {last_exception.stderr if hasattr(last_exception, 'stderr') else str(last_exception)}"
+        elif last_exception:
+            error_msg = f"Unexpected error: {str(last_exception)}"
+        else:
+            error_msg = "Query failed after retries"
+
+        return MultiAgentResponse(
+            providers=[],
+            responses={},
+            strategy=strategy.value,
+            total_tokens=0,
+            total_cost=0.0,
+            success=False,
+            error=error_msg,
+        )
 
     def _parse_output(self, stdout: str, stderr: str) -> MultiAgentResponse:
         """Parse multi-agent-coder output.
@@ -658,6 +748,10 @@ Format your response as:
             "total_tokens": self.total_tokens,
             "total_cost": self.total_cost,
             "provider_usage": self.provider_usage,
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
+            "retry_count": self.retry_count,
+            "rate_limit_count": self.rate_limit_count,
             "average_tokens_per_call": (
                 self.total_tokens / self.total_calls if self.total_calls > 0 else 0
             ),
@@ -672,6 +766,10 @@ Format your response as:
         self.total_tokens = 0
         self.total_cost = 0.0
         self.provider_usage.clear()
+        self.cache_hits = 0
+        self.cache_misses = 0
+        self.retry_count = 0
+        self.rate_limit_count = 0
 
     def _track_costs(self, response: MultiAgentResponse):
         """Track costs with cost tracker.

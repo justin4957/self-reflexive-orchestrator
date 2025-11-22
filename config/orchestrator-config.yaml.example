@@ -54,6 +54,26 @@ code_review:
   # Require approval from multi-agent-coder
   require_approval: true
 
+multi_agent_coder:
+  # Path to multi_agent_coder executable
+  executable_path: ../multi_agent_coder/multi_agent_coder
+  # Strategy: all, sequential, dialectical
+  default_strategy: all
+  # Providers to use (empty = all available)
+  # To exclude a provider (e.g., gemini if hitting rate limits), specify only the ones to use:
+  # default_providers: ["anthropic", "openai", "deepseek"]
+  default_providers: []
+  # Query timeout (seconds)
+  query_timeout: 120
+  # Maximum retries on rate limit errors
+  max_retries: 3
+  # Initial delay between retries (exponential backoff)
+  retry_delay: 2.0
+  # Enable for issue analysis
+  enable_for_issue_analysis: true
+  # Enable for code review
+  enable_for_code_review: true
+
 roadmap:
   # Enable roadmap generation
   enabled: true
